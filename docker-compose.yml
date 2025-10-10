@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Frontend - React Application
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ggrock-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_GGROCK_API_URL=http://ggrock-api:5000
+      - VITE_GGROCK_WS_URL=ws://ggrock-api:5000
+      - VITE_GGROCK_VNC_URL=http://localhost:6080
+    networks:
+      - ggrock-network
+    depends_on:
+      - mock-api
+    restart: unless-stopped
+
+  # Mock API for development (replace with actual GGRock backend)
+  mock-api:
+    image: mockserver/mockserver:latest
+    container_name: ggrock-mock-api
+    ports:
+      - "5000:1080"
+    environment:
+      - MOCKSERVER_PROPERTY_FILE=/config/mockserver.properties
+      - MOCKSERVER_INITIALIZATION_JSON_PATH=/config/initializerJson.json
+    volumes:
+      - ./docker/mock-api:/config
+    networks:
+      - ggrock-network
+    restart: unless-stopped
+
+  # PostgreSQL Database (for production GGRock integration)
+  postgres:
+    image: postgres:12-alpine
+    container_name: ggrock-postgres
+    environment:
+      - POSTGRES_DB=ggrock
+      - POSTGRES_USER=ggrock
+      - POSTGRES_PASSWORD=ggrock_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - ggrock-network
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Prometheus for metrics (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ggrock-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - ggrock-network
+    restart: unless-stopped
+
+  # Grafana for visualization (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ggrock-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3001:3000"
+    networks:
+      - ggrock-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  ggrock-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
