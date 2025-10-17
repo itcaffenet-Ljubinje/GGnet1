@@ -29,6 +29,13 @@ jobs:
         sudo mkdir -p /opt/ggnet
         sudo chown -R $USER:$USER /opt/ggnet
         mkdir -p /opt/ggnet/backup
+        
+        # Install rsync if not present
+        if ! command -v rsync &> /dev/null; then
+          echo "Installing rsync..."
+          sudo apt-get update -qq
+          sudo apt-get install -y rsync
+        fi
     
     - name: Backup existing installation
       run: |

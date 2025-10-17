@@ -75,7 +75,8 @@ sudo apt-get install -y \
   curl \
   wget \
   git \
-  jq
+  jq \
+  rsync
 
 # Create ggnet user (optional but recommended)
 sudo useradd -m -s /bin/bash ggnet

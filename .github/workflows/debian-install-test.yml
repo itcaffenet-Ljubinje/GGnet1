@@ -42,7 +42,8 @@ jobs:
           curl \
           wget \
           git \
-          bash
+          bash \
+          rsync
     
     - name: Verify prerequisites
       run: |
