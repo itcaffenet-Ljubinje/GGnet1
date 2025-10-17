@@ -74,7 +74,7 @@ export const SnapshotList: React.FC<SnapshotListProps> = ({
     <div className="space-y-3">
       {snapshots.map((snapshot, index) => {
         const isLatest = index === 0;
-        const isCurrent = snapshot.is_current;
+        const isCurrent = false; // TODO: Track current snapshot in backend
 
         return (
           <div
@@ -115,9 +115,9 @@ export const SnapshotList: React.FC<SnapshotListProps> = ({
                   </div>
 
                   <div>
-                    <span className="text-gray-500">Size:</span>
+                    <span className="text-gray-500">ID:</span>
                     <p className="font-medium text-gray-900">
-                      {formatBytes(snapshot.size_bytes)}
+                      #{snapshot.id}
                     </p>
                   </div>
 
@@ -129,9 +129,9 @@ export const SnapshotList: React.FC<SnapshotListProps> = ({
                   </div>
                 </div>
 
-                {snapshot.description && (
+                {snapshot.comment && (
                   <p className="mt-2 text-sm text-gray-600 italic">
-                    "{snapshot.description}"
+                    "{snapshot.comment}"
                   </p>
                 )}
               </div>

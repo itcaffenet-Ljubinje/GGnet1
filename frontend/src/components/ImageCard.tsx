@@ -6,10 +6,10 @@
  */
 
 import React from 'react';
-import { DiskImage } from '../services/api';
+import { Image } from '../services/api';
 
 interface ImageCardProps {
-  image: DiskImage;
+  image: Image;
   onDelete?: (imageId: number) => void;
   onSnapshot?: (imageId: number) => void;
   onClone?: (imageId: number) => void;
