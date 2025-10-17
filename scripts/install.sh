@@ -283,7 +283,16 @@ fi
 
 # Install dependencies
 echo "📦 Installing frontend dependencies..."
-sudo -u $GGNET_USER $PKG_MGR install
+# Handle npm optional dependency bug: https://github.com/npm/cli/issues/4828
+if [ "$PKG_MGR" = "npm" ]; then
+    sudo -u $GGNET_USER npm install || {
+        echo "⚠️  npm install failed, trying clean install..."
+        sudo -u $GGNET_USER rm -rf node_modules package-lock.json
+        sudo -u $GGNET_USER npm install
+    }
+else
+    sudo -u $GGNET_USER $PKG_MGR install
+fi
 
 # Build
 echo "🔨 Building frontend..."

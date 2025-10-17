@@ -61,8 +61,13 @@ jobs:
     - name: Install dependencies
       run: |
         cd frontend
-        # Try npm ci first, fallback to npm install if lock file is out of sync
-        npm ci || npm install
+        # Try npm ci first, fallback to clean install if it fails
+        # (handles both lock file sync issues and npm optional dependency bugs)
+        npm ci || {
+          echo "npm ci failed, trying clean install..."
+          rm -rf node_modules package-lock.json
+          npm install
+        }
     
     - name: Build frontend
       run: |
