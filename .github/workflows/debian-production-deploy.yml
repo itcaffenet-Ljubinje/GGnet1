@@ -70,6 +70,8 @@ jobs:
           --exclude='*.pyc' \
           --exclude='.env' \
           --exclude='dist' \
+          --exclude='docs' \
+          --ignore-missing-args \
           ./ /opt/ggnet/
     
     - name: Run installation script
