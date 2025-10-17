@@ -4,7 +4,6 @@ import {
   getSnapshots,
   createSnapshot,
   deleteSnapshot,
-  Snapshot,
   SnapshotCreate,
   getImages,
 } from '../services/api';

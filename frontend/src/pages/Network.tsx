@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Network as NetworkIcon, Wifi, Server, Globe, Settings } from 'lucide-react';
+import { Network as NetworkIcon, Server, Settings } from 'lucide-react';
 
 const Network = () => {
   const [networkConfig, setNetworkConfig] = useState({

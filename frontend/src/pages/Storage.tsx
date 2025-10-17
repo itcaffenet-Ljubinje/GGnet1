@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HardDrive, Database, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
+import { HardDrive, Database, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface ArrayStatus {
   exists: boolean;

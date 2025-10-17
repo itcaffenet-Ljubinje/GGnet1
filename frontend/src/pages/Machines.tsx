@@ -6,7 +6,6 @@ import {
   deleteMachine,
   powerOperation,
   setKeepWriteback,
-  Machine,
   MachineCreate,
 } from '../services/api';
 import { Plus, Power, PowerOff, Trash2, HardDrive } from 'lucide-react';
@@ -56,7 +55,7 @@ const Machines = () => {
 
   // Power operation mutation
   const powerMutation = useMutation({
-    mutationFn: ({ id, action }: { id: number; action: string }) =>
+    mutationFn: ({ id, action }: { id: number; action: 'power_on' | 'power_off' | 'reboot' }) =>
       powerOperation(id, action),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['machines'] });
@@ -300,7 +299,7 @@ const Machines = () => {
                       {machine.status === 'offline' && (
                         <button
                           onClick={() =>
-                            powerMutation.mutate({ id: machine.id, action: 'on' })
+                            powerMutation.mutate({ id: machine.id, action: 'power_on' })
                           }
                           className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
                           title="Power On (WoL)"
@@ -312,7 +311,7 @@ const Machines = () => {
                       {machine.status === 'online' && (
                         <button
                           onClick={() =>
-                            powerMutation.mutate({ id: machine.id, action: 'off' })
+                            powerMutation.mutate({ id: machine.id, action: 'power_off' })
                           }
                           className="p-2 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
                           title="Power Off"

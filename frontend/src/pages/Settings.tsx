@@ -2,9 +2,7 @@ import { useState } from 'react';
 import {
   Settings as SettingsIcon,
   Server,
-  Database,
   HardDrive,
-  Clock,
   Shield,
   Bell,
 } from 'lucide-react';

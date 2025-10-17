@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getImages, createImage, deleteImage, Image, ImageCreate } from '../services/api';
-import { Upload, Plus, Trash2, HardDrive, Camera } from 'lucide-react';
+import { getImages, createImage, deleteImage, ImageCreate } from '../services/api';
+import { Upload, Plus, Trash2, Camera } from 'lucide-react';
 
 const Images = () => {
   const [showAddForm, setShowAddForm] = useState(false);

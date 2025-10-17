@@ -75,6 +75,26 @@ export async function deleteMachine(id: number): Promise<void> {
   });
 }
 
+export async function powerOperation(
+  id: number,
+  operation: 'power_on' | 'power_off' | 'reboot'
+): Promise<{ success: boolean; message: string }> {
+  return request(`/machines/${id}/power`, {
+    method: 'POST',
+    body: JSON.stringify({ operation }),
+  });
+}
+
+export async function setKeepWriteback(
+  id: number,
+  keep: boolean
+): Promise<Machine> {
+  return request(`/machines/${id}/keep_writeback`, {
+    method: 'PATCH',
+    body: JSON.stringify({ keep }),
+  });
+}
+
 export async function applyWriteback(
   id: number,
   comment?: string
