@@ -23,7 +23,7 @@ def generate_id():
 class Machine(Base):
     """
     Machine Model - Client PC
-    
+
     Attributes:
         id: Primary key
         name: Display name
@@ -36,28 +36,38 @@ class Machine(Base):
         last_boot: Last boot timestamp
     """
     __tablename__ = "machines"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
-    mac_address = Column(String(17), unique=True, nullable=False)  # XX:XX:XX:XX:XX:XX
+    mac_address = Column(
+        String(17),
+        unique=True,
+        nullable=False)  # XX:XX:XX:XX:XX:XX
     ip_address = Column(String(45), nullable=True)
-    status = Column(String(20), default="offline")  # online, offline, booting, error
+    # online, offline, booting, error
+    status = Column(String(20), default="offline")
     image_name = Column(String(100), nullable=True)
     writeback_size = Column(Integer, default=0)  # bytes
     keep_writeback = Column(Boolean, default=False)
     last_boot = Column(DateTime, nullable=True)
-    
+
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow)
+
     # Relationships
-    writebacks = relationship("Writeback", back_populates="machine", cascade="all, delete-orphan")
+    writebacks = relationship(
+        "Writeback",
+        back_populates="machine",
+        cascade="all, delete-orphan")
 
 
 class Image(Base):
     """
     Image Model - Bootable disk image
-    
+
     Attributes:
         id: Primary key
         name: Unique image name
@@ -67,26 +77,35 @@ class Image(Base):
         active_snapshot_id: Currently active snapshot
     """
     __tablename__ = "images"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
     path = Column(String(500), nullable=False)
     type = Column(String(10), nullable=False)  # 'os' or 'game'
     size_bytes = Column(Integer, default=0)
-    active_snapshot_id = Column(Integer, ForeignKey("snapshots.id"), nullable=True)
-    
+    active_snapshot_id = Column(
+        Integer,
+        ForeignKey("snapshots.id"),
+        nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow)
+
     # Relationships
-    snapshots = relationship("Snapshot", back_populates="image", foreign_keys="Snapshot.image_id")
+    snapshots = relationship(
+        "Snapshot",
+        back_populates="image",
+        foreign_keys="Snapshot.image_id")
     writebacks = relationship("Writeback", back_populates="image")
 
 
 class Snapshot(Base):
     """
     Snapshot Model - Point-in-time image capture
-    
+
     Attributes:
         id: Primary key
         image_id: Parent image
@@ -96,22 +115,25 @@ class Snapshot(Base):
         path: Storage path for snapshot data
     """
     __tablename__ = "snapshots"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
     created_by = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     comment = Column(String(500), nullable=True)
     path = Column(String(500), nullable=False)
-    
+
     # Relationships
-    image = relationship("Image", back_populates="snapshots", foreign_keys=[image_id])
+    image = relationship(
+        "Image",
+        back_populates="snapshots",
+        foreign_keys=[image_id])
 
 
 class Writeback(Base):
     """
     Writeback Model - Per-machine write layer
-    
+
     Attributes:
         id: Primary key
         machine_id: Associated machine
@@ -121,14 +143,14 @@ class Writeback(Base):
         created_at: Creation timestamp
     """
     __tablename__ = "writebacks"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     machine_id = Column(Integer, ForeignKey("machines.id"), nullable=False)
     image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
     path = Column(String(500), nullable=False)
     size_bytes = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     machine = relationship("Machine", back_populates="writebacks")
     image = relationship("Image", back_populates="writebacks")
@@ -137,7 +159,7 @@ class Writeback(Base):
 class User(Base):
     """
     User Model - Administrator account
-    
+
     Attributes:
         id: Primary key
         username: Unique username
@@ -145,11 +167,10 @@ class User(Base):
         role: admin/user
     """
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), default="admin")
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
 
+    created_at = Column(DateTime, default=datetime.utcnow)

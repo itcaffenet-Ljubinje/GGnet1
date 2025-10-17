@@ -25,7 +25,7 @@ class WritebackResponse(BaseModel):
     status: WritebackStatus
     created_at: str
     inactive_hours: int
-    
+
     class Config:
         from_attributes = True
 
@@ -41,20 +41,20 @@ async def list_writebacks(
     List all writebacks with optional filters
     """
     query = select(Writeback)
-    
+
     if client_id:
         query = query.where(Writeback.attached_client_id == client_id)
-    
+
     if status:
         query = query.where(Writeback.status == status)
-    
+
     result = await db.execute(query.order_by(Writeback.created_at.desc()))
     writebacks = result.scalars().all()
-    
+
     # TODO: Calculate inactive_hours from last_activity
     for wb in writebacks:
         wb.inactive_hours = 0  # Placeholder
-    
+
     return writebacks
 
 
@@ -65,7 +65,7 @@ async def delete_writeback(
 ):
     """
     Delete a writeback
-    
+
     WARNING: This permanently removes client changes!
     Ensure Snapshot exists if changes need to be preserved.
     """
@@ -73,23 +73,23 @@ async def delete_writeback(
         select(Writeback).where(Writeback.writeback_id == writeback_id)
     )
     writeback = result.scalar_one_or_none()
-    
+
     if not writeback:
         raise HTTPException(status_code=404, detail="Writeback not found")
-    
+
     if writeback.status == WritebackStatus.ACTIVE:
         raise HTTPException(
             status_code=400,
             detail="Cannot delete active Writeback. Shutdown client first."
         )
-    
+
     # TODO: Delete ZFS volume
     # TODO: Remove iSCSI target
     # Command: zfs destroy pool0/ggnet/writebacks/[writeback_id]
-    
+
     await db.delete(writeback)
     await db.commit()
-    
+
     return {"success": True, "writeback_id": writeback_id}
 
 
@@ -97,7 +97,7 @@ async def delete_writeback(
 async def cleanup_writebacks(db: AsyncSession = Depends(get_db)):
     """
     Run writeback cleanup based on retention policies
-    
+
     Deletes inactive writebacks older than configured threshold.
     """
     # TODO: Implement retention policy logic
@@ -105,10 +105,9 @@ async def cleanup_writebacks(db: AsyncSession = Depends(get_db)):
     # 2. Check inactive_hours > threshold
     # 3. Delete ZFS volumes
     # 4. Remove database records
-    
+
     return {
         "success": True,
         "deleted_count": 0,  # TODO: Return actual count
         "space_freed_bytes": 0
     }
-
