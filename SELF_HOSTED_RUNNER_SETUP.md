@@ -80,6 +80,11 @@ sudo apt-get install -y \
 # Create ggnet user (optional but recommended)
 sudo useradd -m -s /bin/bash ggnet
 sudo usermod -aG sudo ggnet
+
+# IMPORTANT: Configure sudo for passwordless access
+# This is needed for the installation script to run properly
+echo "ggnet ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/ggnet
+sudo chmod 0440 /etc/sudoers.d/ggnet
 ```
 
 ### Step 2: Add Runner to GitHub Repository
@@ -141,10 +146,12 @@ Enter the name of the work folder: [press Enter for _work]
 2. Run interactively
 
 # Choose option 1
-Enter the name of the user: [press Enter for current user]
+Enter the name of the user: ggnet
 
 # Confirm
 ```
+
+**Important:** Use the `ggnet` user (or the user you created) so that the runner has proper permissions.
 
 ### Step 4: Install as Systemd Service
 

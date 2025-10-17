@@ -78,7 +78,14 @@ jobs:
         
         echo "Running installation script..."
         chmod +x scripts/install.sh
-        sudo bash scripts/install.sh
+        
+        # Run as root since we're on self-hosted runner
+        # The script needs root for systemd, nginx config, etc.
+        bash scripts/install.sh || {
+          echo "Installation script needs root access"
+          echo "Running with sudo..."
+          sudo bash scripts/install.sh
+        }
         
         echo "Installation completed"
     
