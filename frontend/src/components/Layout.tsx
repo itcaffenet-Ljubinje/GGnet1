@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Monitor, HardDrive, Database, Camera, Network as NetworkIcon, Settings as SettingsIcon } from 'lucide-react'
+import { Home, Monitor, HardDrive, Database, Camera, Network as NetworkIcon, Settings as SettingsIcon, Server } from 'lucide-react'
 
 const Layout = () => {
   const location = useLocation()
@@ -10,6 +10,7 @@ const Layout = () => {
     { name: 'Images', path: '/images', icon: HardDrive },
     { name: 'Writebacks', path: '/writebacks', icon: Database },
     { name: 'Snapshots', path: '/snapshots', icon: Camera },
+    { name: 'Storage', path: '/storage', icon: Server },
     { name: 'Network', path: '/network', icon: NetworkIcon },
     { name: 'Settings', path: '/settings', icon: SettingsIcon },
   ]
