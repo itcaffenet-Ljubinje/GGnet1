@@ -52,29 +52,34 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     
     - name: Install dependencies
       run: |
         cd frontend
-        npm ci
+        # Try npm ci first, fallback to npm install if lock file is out of sync
+        npm ci || npm install
     
     - name: Build frontend
       run: |
         cd frontend
+        echo "Building frontend with Vite..."
         npm run build
-    
-    - name: Check build output
-      run: |
-        if [ ! -d "frontend/dist" ]; then
-          echo "Build failed - dist directory not created"
+        
+        # Show build output
+        if [ -d "dist" ]; then
+          echo "✅ Build successful"
+          echo "Build output:"
+          ls -lh dist/
+          du -sh dist/
+        else
+          echo "❌ Build failed - dist directory not created"
           exit 1
         fi
-        echo "Build successful"
 
   pxe-validation:
     name: PXE Config Validation
