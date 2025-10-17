@@ -29,6 +29,13 @@ jobs:
         sudo mkdir -p /opt/ggnet
         sudo chown -R $USER:$USER /opt/ggnet
         mkdir -p /opt/ggnet/backup
+        
+        # Install rsync if not present
+        if ! command -v rsync &> /dev/null; then
+          echo "Installing rsync..."
+          sudo apt-get update -qq
+          sudo apt-get install -y rsync
+        fi
     
     - name: Backup existing installation
       run: |
@@ -42,9 +49,9 @@ jobs:
             cp /opt/ggnet/backend/ggnet.db "$BACKUP_DIR/"
           fi
           
-          # Backup config files
-          if [ -d "/opt/ggnet/config" ]; then
-            cp -r /opt/ggnet/config "$BACKUP_DIR/"
+          # Backup config files (located in /etc/ggnet)
+          if [ -d "/etc/ggnet" ]; then
+            cp -r /etc/ggnet "$BACKUP_DIR/config"
           fi
           
           echo "Backup created at: $BACKUP_DIR"

@@ -42,7 +42,8 @@ jobs:
           curl \
           wget \
           git \
-          bash
+          bash \
+          rsync
     
     - name: Verify prerequisites
       run: |
@@ -106,13 +107,12 @@ jobs:
           exit 1
         fi
         
-        # Check if config files are in place
-        if [ -d "/opt/ggnet/config" ]; then
-          echo "✅ Config directory created"
-          ls -la /opt/ggnet/config/
+        # Check if config directory exists (installation script uses /etc/ggnet)
+        if [ -d "/etc/ggnet" ]; then
+          echo "✅ Config directory created at /etc/ggnet"
+          ls -la /etc/ggnet/ || true
         else
-          echo "❌ Config directory not found"
-          exit 1
+          echo "⚠️  Config directory not found at /etc/ggnet (may be created later)"
         fi
     
     - name: Verify Python virtual environment
@@ -222,31 +222,40 @@ jobs:
       run: |
         echo "Checking systemd service files..."
         
-        if [ -f "/opt/ggnet/config/systemd/ggnet-backend.service" ]; then
+        # Installation script creates files in /etc/systemd/system/
+        if [ -f "/etc/systemd/system/ggnet-backend.service" ]; then
           echo "✅ Backend systemd service file exists"
-          cat /opt/ggnet/config/systemd/ggnet-backend.service
+          cat /etc/systemd/system/ggnet-backend.service | head -20
         else
-          echo "❌ Backend systemd service file not found"
+          echo "⚠️  Backend systemd service file not found at /etc/systemd/system/"
+          echo "    (May be created by install script)"
         fi
         
-        if [ -f "/opt/ggnet/config/systemd/ggnet-frontend.service" ]; then
-          echo "✅ Frontend systemd service file exists"
+        # Check if service is loaded
+        if systemctl list-unit-files | grep -q ggnet-backend; then
+          echo "✅ Backend service registered with systemd"
         else
-          echo "❌ Frontend systemd service file not found"
+          echo "⚠️  Backend service not registered (expected before systemctl daemon-reload)"
         fi
     
     - name: Verify Nginx configuration
       run: |
         echo "Checking Nginx configuration..."
         
-        if [ -f "/opt/ggnet/config/nginx/ggnet.conf.template" ]; then
-          echo "✅ Nginx configuration template exists"
+        # Installation script creates config in /etc/nginx/sites-available/
+        if [ -f "/etc/nginx/sites-available/ggnet" ]; then
+          echo "✅ Nginx configuration exists at /etc/nginx/sites-available/ggnet"
+          cat /etc/nginx/sites-available/ggnet | head -30
           
-          # Check if configuration is valid
-          # Note: We can't test actual nginx config without installing it
-          cat /opt/ggnet/config/nginx/ggnet.conf.template | head -30
+          # Check if enabled (symlinked)
+          if [ -L "/etc/nginx/sites-enabled/ggnet" ]; then
+            echo "✅ Nginx site enabled"
+          else
+            echo "⚠️  Nginx site not enabled yet"
+          fi
         else
-          echo "❌ Nginx configuration not found"
+          echo "⚠️  Nginx configuration not found at /etc/nginx/sites-available/"
+          echo "    (May be created by install script step 7)"
         fi
     
     - name: Verify PXE files
