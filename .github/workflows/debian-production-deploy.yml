@@ -17,68 +17,51 @@ on:
 jobs:
   deploy-to-debian:
     name: Deploy to Debian Server
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: ${{ github.event.inputs.environment || 'production' }}
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Setup SSH
+    - name: Setup deployment directory
       run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan ${{ secrets.DEBIAN_SERVER_HOST }} >> ~/.ssh/known_hosts
-    
-    - name: Test SSH connection
-      run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} "echo 'SSH connection successful'"
-    
-    - name: Create deployment directory on server
-      run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          sudo mkdir -p /opt/ggnet
-          sudo chown -R $USER:$USER /opt/ggnet
-          mkdir -p /opt/ggnet/backup
-        ENDSSH
+        sudo mkdir -p /opt/ggnet
+        sudo chown -R $USER:$USER /opt/ggnet
+        mkdir -p /opt/ggnet/backup
     
     - name: Backup existing installation
       run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          if [ -d "/opt/ggnet/backend" ]; then
-            echo "Backing up existing installation..."
-            BACKUP_DIR="/opt/ggnet/backup/backup-$(date +%Y%m%d-%H%M%S)"
-            mkdir -p "$BACKUP_DIR"
-            
-            # Backup database
-            if [ -f "/opt/ggnet/backend/ggnet.db" ]; then
-              cp /opt/ggnet/backend/ggnet.db "$BACKUP_DIR/"
-            fi
-            
-            # Backup config files
-            if [ -d "/opt/ggnet/config" ]; then
-              cp -r /opt/ggnet/config "$BACKUP_DIR/"
-            fi
-            
-            echo "Backup created at: $BACKUP_DIR"
-          else
-            echo "No existing installation to backup"
+        if [ -d "/opt/ggnet/backend" ]; then
+          echo "Backing up existing installation..."
+          BACKUP_DIR="/opt/ggnet/backup/backup-$(date +%Y%m%d-%H%M%S)"
+          mkdir -p "$BACKUP_DIR"
+          
+          # Backup database
+          if [ -f "/opt/ggnet/backend/ggnet.db" ]; then
+            cp /opt/ggnet/backend/ggnet.db "$BACKUP_DIR/"
           fi
-        ENDSSH
+          
+          # Backup config files
+          if [ -d "/opt/ggnet/config" ]; then
+            cp -r /opt/ggnet/config "$BACKUP_DIR/"
+          fi
+          
+          echo "Backup created at: $BACKUP_DIR"
+        else
+          echo "No existing installation to backup"
+        fi
     
     - name: Stop services
       run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          echo "Stopping ggNet services..."
-          sudo systemctl stop ggnet-backend || true
-          sudo systemctl stop ggnet-frontend || true
-          sudo systemctl stop nginx || true
-        ENDSSH
+        echo "Stopping ggNet services..."
+        sudo systemctl stop ggnet-backend || true
+        sudo systemctl stop ggnet-frontend || true
+        sudo systemctl stop nginx || true
     
-    - name: Copy files to server
+    - name: Copy files to deployment directory
       run: |
-        echo "Copying files to server..."
+        echo "Copying files to deployment directory..."
         rsync -avz --progress \
           --exclude='.git' \
           --exclude='node_modules' \
@@ -87,115 +70,105 @@ jobs:
           --exclude='*.pyc' \
           --exclude='.env' \
           --exclude='dist' \
-          ./ ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }}:/opt/ggnet/
+          ./ /opt/ggnet/
     
-    - name: Run installation script on server
+    - name: Run installation script
       run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          cd /opt/ggnet
-          
-          echo "Running installation script..."
-          chmod +x scripts/install.sh
-          sudo bash scripts/install.sh
-          
-          echo "Installation completed"
-        ENDSSH
+        cd /opt/ggnet
+        
+        echo "Running installation script..."
+        chmod +x scripts/install.sh
+        sudo bash scripts/install.sh
+        
+        echo "Installation completed"
     
     - name: Verify installation
       run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          echo "Verifying installation..."
-          
-          # Check if backend is installed
-          if [ -d "/opt/ggnet/backend" ]; then
-            echo "✅ Backend installed"
-          else
-            echo "❌ Backend not found"
-            exit 1
-          fi
-          
-          # Check if frontend is installed
-          if [ -d "/opt/ggnet/frontend" ]; then
-            echo "✅ Frontend installed"
-          else
-            echo "❌ Frontend not found"
-            exit 1
-          fi
-          
-          # Check systemd services
-          if systemctl list-unit-files | grep -q ggnet-backend; then
-            echo "✅ systemd services configured"
-          else
-            echo "⚠️ systemd services not found"
-          fi
-        ENDSSH
+        echo "Verifying installation..."
+        
+        # Check if backend is installed
+        if [ -d "/opt/ggnet/backend" ]; then
+          echo "✅ Backend installed"
+        else
+          echo "❌ Backend not found"
+          exit 1
+        fi
+        
+        # Check if frontend is installed
+        if [ -d "/opt/ggnet/frontend" ]; then
+          echo "✅ Frontend installed"
+        else
+          echo "❌ Frontend not found"
+          exit 1
+        fi
+        
+        # Check systemd services
+        if systemctl list-unit-files | grep -q ggnet-backend; then
+          echo "✅ systemd services configured"
+        else
+          echo "⚠️ systemd services not found"
+        fi
     
     - name: Start services
       run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          echo "Starting services..."
-          
-          # Enable services
-          sudo systemctl enable ggnet-backend
-          sudo systemctl enable nginx
-          
-          # Start services
-          sudo systemctl start ggnet-backend
-          sudo systemctl restart nginx
-          
-          # Check status
-          echo "Backend status:"
-          sudo systemctl status ggnet-backend --no-pager || true
-          
-          echo "Nginx status:"
-          sudo systemctl status nginx --no-pager || true
-        ENDSSH
+        echo "Starting services..."
+        
+        # Enable services
+        sudo systemctl enable ggnet-backend
+        sudo systemctl enable nginx
+        
+        # Start services
+        sudo systemctl start ggnet-backend
+        sudo systemctl restart nginx
+        
+        # Check status
+        echo "Backend status:"
+        sudo systemctl status ggnet-backend --no-pager || true
+        
+        echo "Nginx status:"
+        sudo systemctl status nginx --no-pager || true
     
     - name: Wait for services to be ready
       run: |
         echo "Waiting for services to start..."
         sleep 10
         
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          # Check if backend is responding
-          for i in {1..30}; do
-            if curl -f http://localhost:8080/api/status > /dev/null 2>&1; then
-              echo "✅ Backend is responding"
-              break
-            fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 2
-          done
-          
-          # Check if nginx is responding
-          if curl -f http://localhost/api/status > /dev/null 2>&1; then
-            echo "✅ Nginx proxy is working"
-          else
-            echo "⚠️ Nginx proxy not responding"
+        # Check if backend is responding
+        for i in {1..30}; do
+          if curl -f http://localhost:8080/api/status > /dev/null 2>&1; then
+            echo "✅ Backend is responding"
+            break
           fi
-        ENDSSH
+          echo "Waiting for backend... ($i/30)"
+          sleep 2
+        done
+        
+        # Check if nginx is responding
+        if curl -f http://localhost/api/status > /dev/null 2>&1; then
+          echo "✅ Nginx proxy is working"
+        else
+          echo "⚠️ Nginx proxy not responding"
+        fi
     
     - name: Run health checks
       run: |
-        ssh ${{ secrets.DEBIAN_SERVER_USER }}@${{ secrets.DEBIAN_SERVER_HOST }} << 'ENDSSH'
-          echo "Running health checks..."
-          
-          # Test backend API
-          echo "Testing backend API:"
-          curl -s http://localhost:8080/api/status | jq . || echo "Backend API check failed"
-          
-          # Test nginx proxy
-          echo "Testing nginx proxy:"
-          curl -s http://localhost/api/status | jq . || echo "Nginx proxy check failed"
-          
-          # Check disk space
-          echo "Disk usage:"
-          df -h /opt/ggnet
-          
-          # Check service logs
-          echo "Backend logs (last 10 lines):"
-          sudo journalctl -u ggnet-backend -n 10 --no-pager || true
-        ENDSSH
+        echo "Running health checks..."
+        
+        # Test backend API
+        echo "Testing backend API:"
+        curl -s http://localhost:8080/api/status | jq . || echo "Backend API check failed"
+        
+        # Test nginx proxy
+        echo "Testing nginx proxy:"
+        curl -s http://localhost/api/status | jq . || echo "Nginx proxy check failed"
+        
+        # Check disk space
+        echo "Disk usage:"
+        df -h /opt/ggnet
+        
+        # Check service logs
+        echo "Backend logs (last 10 lines):"
+        sudo journalctl -u ggnet-backend -n 10 --no-pager || true
     
     - name: Deployment summary
       if: always()
@@ -207,16 +180,16 @@ jobs:
         echo "╚════════════════════════════════════════════════╝"
         echo ""
         echo "Environment: ${{ github.event.inputs.environment || 'production' }}"
-        echo "Server: ${{ secrets.DEBIAN_SERVER_HOST }}"
+        echo "Server: $(hostname)"
         echo "Branch: ${{ github.ref_name }}"
         echo "Commit: ${{ github.sha }}"
         echo ""
         echo "✅ Deployment completed!"
         echo ""
         echo "Access URLs:"
-        echo "  - Backend API: http://${{ secrets.DEBIAN_SERVER_HOST }}:8080"
-        echo "  - Frontend: http://${{ secrets.DEBIAN_SERVER_HOST }}"
-        echo "  - API Docs: http://${{ secrets.DEBIAN_SERVER_HOST }}/docs"
+        echo "  - Backend API: http://$(hostname -I | awk '{print $1}'):8080"
+        echo "  - Frontend: http://$(hostname -I | awk '{print $1}')"
+        echo "  - API Docs: http://$(hostname -I | awk '{print $1}')/docs"
     
     - name: Notify on failure
       if: failure()
@@ -224,4 +197,3 @@ jobs:
         echo "❌ Deployment failed!"
         echo "Check the logs above for details."
         # You can add Slack/Discord/Email notifications here
-
