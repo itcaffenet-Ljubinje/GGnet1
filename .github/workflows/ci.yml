@@ -61,13 +61,11 @@ jobs:
     - name: Install dependencies
       run: |
         cd frontend
-        # Try npm ci first, fallback to clean install if it fails
-        # (handles both lock file sync issues and npm optional dependency bugs)
-        npm ci || {
-          echo "npm ci failed, trying clean install..."
-          rm -rf node_modules package-lock.json
-          npm install
-        }
+        # Use clean install to avoid npm optional dependency bug with rollup
+        # See: https://github.com/npm/cli/issues/4828
+        echo "Performing clean install to avoid rollup optional dependency bug..."
+        rm -rf node_modules
+        npm install
     
     - name: Build frontend
       run: |
