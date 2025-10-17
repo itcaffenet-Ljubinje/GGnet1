@@ -3,7 +3,7 @@ name: Debian Production Deployment
 on:
   push:
     branches: [ main ]  # Only deploy from main branch
-  workflow_dispatch:    # Allow manual trigger
+  workflow_dispatch:    # aAllow manual trigger
     inputs:
       environment:
         description: 'Deployment environment'
