@@ -275,6 +275,12 @@ fi
 
 echo "Using package manager: $PKG_MGR"
 
+# Update npm to latest version if using npm
+if [ "$PKG_MGR" = "npm" ]; then
+    echo "📦 Updating npm to latest version..."
+    npm install -g npm@latest 2>/dev/null || echo "  ⚠️  Couldn't update npm (non-critical)"
+fi
+
 # Install dependencies
 echo "📦 Installing frontend dependencies..."
 sudo -u $GGNET_USER $PKG_MGR install
