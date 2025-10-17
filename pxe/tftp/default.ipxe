@@ -1,0 +1,151 @@
+#!ipxe
+################################################################################
+# ggNet Default iPXE Boot Script
+# 
+# This script handles both UEFI and Legacy BIOS boot modes.
+# It attempts to boot diskless clients from network-mounted images.
+################################################################################
+
+# Set console for better debugging
+console --picture
+
+# Display boot banner
+echo ========================================
+echo        ggNet Diskless Boot System
+echo ========================================
+echo.
+echo MAC Address: ${net0/mac}
+echo IP Address:  ${net0/ip}
+echo Gateway:     ${net0/gateway}
+echo Boot Mode:   ${platform}
+echo.
+
+# Define server variables
+set ggnet-server 192.168.1.1
+set ggnet-port 5000
+
+# Detect boot mode (UEFI vs Legacy BIOS)
+iseq ${platform} efi && set boot-mode uefi || set boot-mode bios
+echo Detected boot mode: ${boot-mode}
+echo.
+
+# Try to get machine-specific config from ggNet server
+echo Checking for machine-specific configuration...
+chain http://${ggnet-server}:${ggnet-port}/pxe/${net0/mac}.ipxe || goto default_boot
+
+:default_boot
+echo No machine-specific config found, using default boot...
+echo.
+
+# Check if this is UEFI or BIOS
+iseq ${boot-mode} uefi && goto uefi_boot || goto bios_boot
+
+################################################################################
+# UEFI Boot Path
+################################################################################
+:uefi_boot
+echo Starting UEFI network boot...
+echo.
+
+# Set kernel and initrd for UEFI
+set kernel vmlinuz-uefi
+set initrd initrd-uefi.img
+
+# Kernel parameters for diskless boot
+set kernel-params initrd=${initrd} root=iscsi:${ggnet-server}::::iqn.2025.net.ggnet:default-image ip=dhcp rw quiet splash
+
+# Load and boot kernel
+echo Loading kernel: ${kernel}
+kernel http://${ggnet-server}:${ggnet-port}/boot/${kernel} ${kernel-params} || goto boot_failed
+echo Loading initrd: ${initrd}
+initrd http://${ggnet-server}:${ggnet-port}/boot/${initrd} || goto boot_failed
+echo Booting...
+boot || goto boot_failed
+
+################################################################################
+# Legacy BIOS Boot Path
+################################################################################
+:bios_boot
+echo Starting Legacy BIOS network boot...
+echo.
+
+# Set kernel and initrd for BIOS
+set kernel vmlinuz
+set initrd initrd.img
+
+# Kernel parameters for diskless boot
+set kernel-params initrd=${initrd} root=iscsi:${ggnet-server}::::iqn.2025.net.ggnet:default-image ip=dhcp rw quiet splash
+
+# Load and boot kernel
+echo Loading kernel: ${kernel}
+kernel http://${ggnet-server}:${ggnet-port}/boot/${kernel} ${kernel-params} || goto boot_failed
+echo Loading initrd: ${initrd}
+initrd http://${ggnet-server}:${ggnet-port}/boot/${initrd} || goto boot_failed
+echo Booting...
+boot || goto boot_failed
+
+################################################################################
+# Boot Menu (Alternative)
+################################################################################
+:boot_menu
+menu ggNet Boot Options
+item --gap -- ═══════════════════════════════════════
+item diskless Boot ggNet Diskless Image
+item local Boot from Local Disk
+item shell Drop to iPXE Shell
+item --gap -- ═══════════════════════════════════════
+choose --default diskless --timeout 10000 selected || goto cancel
+goto ${selected}
+
+:diskless
+goto uefi_boot
+
+:local
+echo Booting from local disk...
+exit
+
+:shell
+echo Type 'exit' to return to menu
+shell
+goto boot_menu
+
+################################################################################
+# Error Handling
+################################################################################
+:boot_failed
+echo.
+echo ========================================
+echo   BOOT FAILED
+echo ========================================
+echo.
+echo Could not load kernel or initrd.
+echo.
+echo Troubleshooting:
+echo - Check ggNet server is running
+echo - Verify network connectivity
+echo - Check boot files exist in /boot/
+echo.
+echo Press any key to try local boot...
+prompt
+goto local
+
+:cancel
+echo Boot cancelled
+goto local
+
+################################################################################
+# Alternative: Chainload to existing PXE
+################################################################################
+# If you have an existing PXE infrastructure, uncomment below:
+# :chainload_existing
+# chain tftp://${next-server}/pxelinux.0
+
+################################################################################
+# Notes:
+# - This script is served by ggNet backend at /pxe/default.ipxe
+# - Machine-specific configs override this at /pxe/{MAC}.ipxe
+# - Kernel params can be customized per machine via backend API
+# - iSCSI target can be changed per machine
+# - For NFS boot, change root= parameter to: root=/dev/nfs nfsroot=...
+################################################################################
+

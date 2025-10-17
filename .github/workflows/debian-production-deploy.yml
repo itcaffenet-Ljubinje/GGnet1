@@ -1,0 +1,208 @@
+name: Debian Production Deployment
+
+on:
+  push:
+    branches: [ main ]  # Only deploy from main branch
+  workflow_dispatch:    # Allow manual trigger
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy-to-debian:
+    name: Deploy to Debian Server
+    runs-on: self-hosted
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup deployment directory
+      run: |
+        sudo mkdir -p /opt/ggnet
+        sudo chown -R $USER:$USER /opt/ggnet
+        mkdir -p /opt/ggnet/backup
+    
+    - name: Backup existing installation
+      run: |
+        if [ -d "/opt/ggnet/backend" ]; then
+          echo "Backing up existing installation..."
+          BACKUP_DIR="/opt/ggnet/backup/backup-$(date +%Y%m%d-%H%M%S)"
+          mkdir -p "$BACKUP_DIR"
+          
+          # Backup database
+          if [ -f "/opt/ggnet/backend/ggnet.db" ]; then
+            cp /opt/ggnet/backend/ggnet.db "$BACKUP_DIR/"
+          fi
+          
+          # Backup config files
+          if [ -d "/opt/ggnet/config" ]; then
+            cp -r /opt/ggnet/config "$BACKUP_DIR/"
+          fi
+          
+          echo "Backup created at: $BACKUP_DIR"
+        else
+          echo "No existing installation to backup"
+        fi
+    
+    - name: Stop services
+      run: |
+        echo "Stopping ggNet services..."
+        sudo systemctl stop ggnet-backend || true
+        sudo systemctl stop ggnet-frontend || true
+        sudo systemctl stop nginx || true
+    
+    - name: Copy files to deployment directory
+      run: |
+        echo "Copying files to deployment directory..."
+        rsync -avz --progress \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='venv' \
+          --exclude='__pycache__' \
+          --exclude='*.pyc' \
+          --exclude='.env' \
+          --exclude='dist' \
+          --exclude='docs' \
+          --ignore-missing-args \
+          ./ /opt/ggnet/
+    
+    - name: Run installation script
+      run: |
+        cd /opt/ggnet
+        
+        echo "Running installation script..."
+        chmod +x scripts/install.sh
+        
+        # Run as root since we're on self-hosted runner
+        # The script needs root for systemd, nginx config, etc.
+        bash scripts/install.sh || {
+          echo "Installation script needs root access"
+          echo "Running with sudo..."
+          sudo bash scripts/install.sh
+        }
+        
+        echo "Installation completed"
+    
+    - name: Verify installation
+      run: |
+        echo "Verifying installation..."
+        
+        # Check if backend is installed
+        if [ -d "/opt/ggnet/backend" ]; then
+          echo "✅ Backend installed"
+        else
+          echo "❌ Backend not found"
+          exit 1
+        fi
+        
+        # Check if frontend is installed
+        if [ -d "/opt/ggnet/frontend" ]; then
+          echo "✅ Frontend installed"
+        else
+          echo "❌ Frontend not found"
+          exit 1
+        fi
+        
+        # Check systemd services
+        if systemctl list-unit-files | grep -q ggnet-backend; then
+          echo "✅ systemd services configured"
+        else
+          echo "⚠️ systemd services not found"
+        fi
+    
+    - name: Start services
+      run: |
+        echo "Starting services..."
+        
+        # Enable services
+        sudo systemctl enable ggnet-backend
+        sudo systemctl enable nginx
+        
+        # Start services
+        sudo systemctl start ggnet-backend
+        sudo systemctl restart nginx
+        
+        # Check status
+        echo "Backend status:"
+        sudo systemctl status ggnet-backend --no-pager || true
+        
+        echo "Nginx status:"
+        sudo systemctl status nginx --no-pager || true
+    
+    - name: Wait for services to be ready
+      run: |
+        echo "Waiting for services to start..."
+        sleep 10
+        
+        # Check if backend is responding
+        for i in {1..30}; do
+          if curl -f http://localhost:8080/api/status > /dev/null 2>&1; then
+            echo "✅ Backend is responding"
+            break
+          fi
+          echo "Waiting for backend... ($i/30)"
+          sleep 2
+        done
+        
+        # Check if nginx is responding
+        if curl -f http://localhost/api/status > /dev/null 2>&1; then
+          echo "✅ Nginx proxy is working"
+        else
+          echo "⚠️ Nginx proxy not responding"
+        fi
+    
+    - name: Run health checks
+      run: |
+        echo "Running health checks..."
+        
+        # Test backend API
+        echo "Testing backend API:"
+        curl -s http://localhost:8080/api/status | jq . || echo "Backend API check failed"
+        
+        # Test nginx proxy
+        echo "Testing nginx proxy:"
+        curl -s http://localhost/api/status | jq . || echo "Nginx proxy check failed"
+        
+        # Check disk space
+        echo "Disk usage:"
+        df -h /opt/ggnet
+        
+        # Check service logs
+        echo "Backend logs (last 10 lines):"
+        sudo journalctl -u ggnet-backend -n 10 --no-pager || true
+    
+    - name: Deployment summary
+      if: always()
+      run: |
+        echo "╔════════════════════════════════════════════════╗"
+        echo "║                                                ║"
+        echo "║   🚀 GGNET DEPLOYMENT SUMMARY                  ║"
+        echo "║                                                ║"
+        echo "╚════════════════════════════════════════════════╝"
+        echo ""
+        echo "Environment: ${{ github.event.inputs.environment || 'production' }}"
+        echo "Server: $(hostname)"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Commit: ${{ github.sha }}"
+        echo ""
+        echo "✅ Deployment completed!"
+        echo ""
+        echo "Access URLs:"
+        echo "  - Backend API: http://$(hostname -I | awk '{print $1}'):8080"
+        echo "  - Frontend: http://$(hostname -I | awk '{print $1}')"
+        echo "  - API Docs: http://$(hostname -I | awk '{print $1}')/docs"
+    
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed!"
+        echo "Check the logs above for details."
+        # You can add Slack/Discord/Email notifications here

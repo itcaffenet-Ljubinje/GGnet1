@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs
+frontend/dist/
+frontend/build/
+*.tgz
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+/var/log/ggnet/
+
+# Environment
+.env
+.env.local
+.env.*.local
+backend.conf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# System
+Thumbs.db
+.cache
+
+# ggNet specific
+/var/lib/ggnet/
+/pool0/
+*.vhd
+*.vhdx
+*.img
+*.iso
+
+# Temporary
+tmp/
+temp/
+*.tmp

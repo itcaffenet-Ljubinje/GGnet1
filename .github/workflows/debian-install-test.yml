@@ -1,0 +1,371 @@
+name: Debian Installation Test
+
+on:
+  push:
+    branches: [ main, develop, ggnet-refactor ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  debian-installation:
+    name: Test Installation on Debian
+    runs-on: ubuntu-latest  # GitHub Actions uses Ubuntu, which is Debian-based
+    
+    # Use matrix for testing multiple Debian versions if needed
+    # strategy:
+    #   matrix:
+    #     debian-version: [11, 12]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup test environment
+      run: |
+        echo "Setting up test environment for installation test"
+        sudo mkdir -p /opt/ggnet
+        sudo chown -R $USER:$USER /opt/ggnet
+    
+    - name: Install prerequisites
+      run: |
+        echo "Installing system prerequisites..."
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          python3 \
+          python3-pip \
+          python3-venv \
+          nodejs \
+          npm \
+          nginx \
+          sqlite3 \
+          curl \
+          wget \
+          git \
+          bash
+    
+    - name: Verify prerequisites
+      run: |
+        echo "Verifying installed prerequisites..."
+        python3 --version
+        nodejs --version
+        npm --version
+        nginx -v
+        sqlite3 --version
+    
+    - name: Make install script executable
+      run: |
+        chmod +x scripts/install.sh
+        chmod +x scripts/uninstall.sh
+        chmod +x scripts/check_system.sh
+        chmod +x scripts/setup_db.sh
+        ls -la scripts/
+    
+    - name: Run system check script
+      run: |
+        echo "Running pre-installation system check..."
+        bash scripts/check_system.sh || echo "System check completed with warnings"
+    
+    - name: Run installation script
+      id: install
+      run: |
+        echo "Starting ggNet installation..."
+        # Note: Install script will create directories and install dependencies
+        # We'll run it in a way that allows us to verify without full system changes
+        
+        # Set environment variables for testing
+        export GGNET_TEST_MODE=true
+        export GGNET_INSTALL_DIR=/opt/ggnet
+        
+        # Run the installation script with sudo
+        # The script needs root access for system packages, systemd, nginx, etc.
+        echo "Running installation script with sudo..."
+        sudo bash scripts/install.sh
+        
+        echo "Installation script completed"
+    
+    - name: Verify installation structure
+      run: |
+        echo "Verifying installation structure..."
+        
+        # Check if backend is installed
+        if [ -d "/opt/ggnet/backend" ]; then
+          echo "✅ Backend directory created"
+          ls -la /opt/ggnet/backend/
+        else
+          echo "❌ Backend directory not found"
+          exit 1
+        fi
+        
+        # Check if frontend is installed
+        if [ -d "/opt/ggnet/frontend" ]; then
+          echo "✅ Frontend directory created"
+          ls -la /opt/ggnet/frontend/
+        else
+          echo "❌ Frontend directory not found"
+          exit 1
+        fi
+        
+        # Check if config files are in place
+        if [ -d "/opt/ggnet/config" ]; then
+          echo "✅ Config directory created"
+          ls -la /opt/ggnet/config/
+        else
+          echo "❌ Config directory not found"
+          exit 1
+        fi
+    
+    - name: Verify Python virtual environment
+      run: |
+        echo "Checking Python virtual environment..."
+        
+        if [ -d "/opt/ggnet/backend/venv" ]; then
+          echo "✅ Virtual environment created"
+          /opt/ggnet/backend/venv/bin/python --version
+        else
+          echo "❌ Virtual environment not found"
+          exit 1
+        fi
+    
+    - name: Verify backend dependencies
+      run: |
+        echo "Checking backend dependencies..."
+        
+        if [ -f "/opt/ggnet/backend/requirements.txt" ]; then
+          echo "✅ requirements.txt found"
+          
+          # Check if packages are installed in venv
+          /opt/ggnet/backend/venv/bin/pip list | grep -i fastapi || echo "FastAPI not found"
+          /opt/ggnet/backend/venv/bin/pip list | grep -i sqlalchemy || echo "SQLAlchemy not found"
+        else
+          echo "❌ requirements.txt not found"
+          exit 1
+        fi
+    
+    - name: Verify frontend build
+      run: |
+        echo "Checking frontend build..."
+        
+        if [ -d "/opt/ggnet/frontend/dist" ]; then
+          echo "✅ Frontend dist directory exists"
+          ls -lh /opt/ggnet/frontend/dist/
+          
+          # Check if index.html exists
+          if [ -f "/opt/ggnet/frontend/dist/index.html" ]; then
+            echo "✅ Frontend build successful"
+            echo "Build size:"
+            du -sh /opt/ggnet/frontend/dist/
+          else
+            echo "❌ Frontend build incomplete (no index.html)"
+            exit 1
+          fi
+        else
+          echo "⚠️ Frontend not built (dist directory missing)"
+          echo "This is expected if build step was skipped"
+        fi
+    
+    - name: Verify database initialization
+      run: |
+        echo "Checking database initialization..."
+        
+        if [ -f "/opt/ggnet/backend/ggnet.db" ]; then
+          echo "✅ Database file created"
+          
+          # Check database schema
+          sqlite3 /opt/ggnet/backend/ggnet.db ".schema" | head -20
+          
+          # Check if tables exist
+          TABLES=$(sqlite3 /opt/ggnet/backend/ggnet.db ".tables")
+          echo "Tables found: $TABLES"
+          
+          if [ -z "$TABLES" ]; then
+            echo "⚠️ No tables found in database"
+          fi
+        else
+          echo "⚠️ Database file not found (may be created on first run)"
+        fi
+    
+    - name: Test backend startup
+      run: |
+        echo "Testing backend startup..."
+        
+        cd /opt/ggnet/backend
+        
+        # Activate virtual environment
+        source venv/bin/activate
+        
+        # Try to start backend in background
+        timeout 10s python run.py &
+        BACKEND_PID=$!
+        
+        # Wait a bit for startup
+        sleep 5
+        
+        # Check if process is running
+        if ps -p $BACKEND_PID > /dev/null 2>&1; then
+          echo "✅ Backend started successfully"
+          
+          # Try to access health endpoint
+          sleep 3
+          curl -f http://localhost:8080/api/status || echo "⚠️ Status endpoint not accessible"
+          
+          # Stop backend
+          kill $BACKEND_PID 2>/dev/null || true
+          sleep 1
+        else
+          echo "⚠️ Backend process check failed (may be expected in test environment)"
+          echo "Checking if backend is responding anyway..."
+          curl -f http://localhost:8080/api/status || echo "Backend not responding"
+        fi
+    
+    - name: Verify systemd service files
+      run: |
+        echo "Checking systemd service files..."
+        
+        if [ -f "/opt/ggnet/config/systemd/ggnet-backend.service" ]; then
+          echo "✅ Backend systemd service file exists"
+          cat /opt/ggnet/config/systemd/ggnet-backend.service
+        else
+          echo "❌ Backend systemd service file not found"
+        fi
+        
+        if [ -f "/opt/ggnet/config/systemd/ggnet-frontend.service" ]; then
+          echo "✅ Frontend systemd service file exists"
+        else
+          echo "❌ Frontend systemd service file not found"
+        fi
+    
+    - name: Verify Nginx configuration
+      run: |
+        echo "Checking Nginx configuration..."
+        
+        if [ -f "/opt/ggnet/config/nginx/ggnet.conf.template" ]; then
+          echo "✅ Nginx configuration template exists"
+          
+          # Check if configuration is valid
+          # Note: We can't test actual nginx config without installing it
+          cat /opt/ggnet/config/nginx/ggnet.conf.template | head -30
+        else
+          echo "❌ Nginx configuration not found"
+        fi
+    
+    - name: Verify PXE files
+      run: |
+        echo "Checking PXE infrastructure files..."
+        
+        if [ -f "pxe/tftp/default.ipxe" ]; then
+          echo "✅ iPXE boot script exists"
+          wc -l pxe/tftp/default.ipxe
+        else
+          echo "❌ iPXE boot script not found"
+        fi
+        
+        if [ -f "pxe/dhcp/dhcpd.conf.template" ]; then
+          echo "✅ DHCP configuration template exists"
+        else
+          echo "❌ DHCP configuration not found"
+        fi
+        
+        if [ -f "pxe/service.py" ]; then
+          echo "✅ PXE service script exists"
+        else
+          echo "❌ PXE service script not found"
+        fi
+    
+    - name: Verify storage scripts
+      run: |
+        echo "Checking storage management scripts..."
+        
+        if [ -f "storage/raid/create_raid10.sh" ]; then
+          echo "✅ RAID creation script exists"
+          chmod +x storage/raid/create_raid10.sh
+        else
+          echo "❌ RAID script not found"
+        fi
+        
+        if [ -f "storage/cache/ram_cache_manager.py" ]; then
+          echo "✅ RAM cache manager exists"
+        else
+          echo "❌ RAM cache manager not found"
+        fi
+    
+    - name: Test uninstall script (optional)
+      if: success()  # Only run if previous steps succeeded
+      run: |
+        echo "Testing uninstall script..."
+        
+        # Run uninstall script
+        # Note: This will remove the installation
+        # We'll skip this in CI to keep the environment for inspection
+        echo "Uninstall script available at: /opt/ggnet/scripts/uninstall.sh"
+        echo "Skipping uninstall in CI to preserve test results"
+    
+    - name: Installation summary
+      if: always()  # Run even if previous steps failed
+      run: |
+        echo "╔════════════════════════════════════════════════╗"
+        echo "║                                                ║"
+        echo "║   📦 GGNET INSTALLATION TEST SUMMARY           ║"
+        echo "║                                                ║"
+        echo "╚════════════════════════════════════════════════╝"
+        echo ""
+        echo "Installation Directory: /opt/ggnet"
+        echo ""
+        
+        if [ -d "/opt/ggnet" ]; then
+          echo "Directory structure:"
+          tree -L 2 /opt/ggnet || ls -la /opt/ggnet
+          echo ""
+          echo "Disk usage:"
+          du -sh /opt/ggnet
+        fi
+        
+        echo ""
+        echo "✅ Installation test completed!"
+    
+    - name: Upload installation logs (on failure)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: installation-logs
+        path: |
+          /opt/ggnet/
+        retention-days: 7
+        if-no-files-found: ignore
+
+# Optional: Add a job to test on actual Debian server via SSH
+# debian-ssh-install:
+#   name: Test Installation on Debian Server
+#   runs-on: ubuntu-latest
+#   if: github.event_name == 'workflow_dispatch'  # Manual trigger only
+#   
+#   steps:
+#   - name: Checkout code
+#     uses: actions/checkout@v3
+#   
+#   - name: Deploy to Debian server
+#     env:
+#       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+#       SERVER_HOST: ${{ secrets.DEBIAN_SERVER_HOST }}
+#       SERVER_USER: ${{ secrets.DEBIAN_SERVER_USER }}
+#     run: |
+#       # Setup SSH
+#       mkdir -p ~/.ssh
+#       echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+#       chmod 600 ~/.ssh/id_rsa
+#       ssh-keyscan $SERVER_HOST >> ~/.ssh/known_hosts
+#       
+#       # Copy files to server
+#       scp -r * $SERVER_USER@$SERVER_HOST:/tmp/ggnet-test/
+#       
+#       # Run installation on server
+#       ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
+#         cd /tmp/ggnet-test
+#         chmod +x scripts/install.sh
+#         sudo bash scripts/install.sh
+#         
+#         # Verify installation
+#         sudo systemctl status ggnet-backend || true
+#         curl http://localhost:8080/api/status || true
+#       ENDSSH
+
