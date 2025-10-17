@@ -204,7 +204,12 @@ export async function getStorageStatus(): Promise<StorageStatus> {
 }
 
 export async function getSystemStatus(): Promise<SystemStatus> {
-  return request<SystemStatus>('/status');
+  // Status endpoint is at /api/status (not /api/v1/status)
+  const response = await fetch('/api/status');
+  if (!response.ok) {
+    throw new Error(`Failed to fetch status: ${response.statusText}`);
+  }
+  return response.json();
 }
 
 export async function rebootServer(): Promise<{ success: boolean }> {
