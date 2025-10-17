@@ -8,7 +8,7 @@ Minimal working FastAPI server for diskless boot management.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 import uvicorn
 import psutil
 
@@ -17,7 +17,7 @@ from db.base import init_db, close_db
 from api.v1 import machines
 
 # Track startup time for uptime calculation
-start_time = datetime.utcnow()
+start_time = datetime.now(timezone.utc)
 
 
 @asynccontextmanager
@@ -73,7 +73,7 @@ async def get_status():
     
     Returns app name, version, uptime, and basic system stats.
     """
-    uptime_seconds = (datetime.utcnow() - start_time).total_seconds()
+    uptime_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
     
     return {
         "app_name": settings.APP_NAME,

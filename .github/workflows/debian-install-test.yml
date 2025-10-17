@@ -242,14 +242,20 @@ jobs:
       run: |
         echo "Checking Nginx configuration..."
         
-        if [ -f "/opt/ggnet/config/nginx/ggnet.conf.template" ]; then
-          echo "✅ Nginx configuration template exists"
+        # Installation script creates config in /etc/nginx/sites-available/
+        if [ -f "/etc/nginx/sites-available/ggnet" ]; then
+          echo "✅ Nginx configuration exists at /etc/nginx/sites-available/ggnet"
+          cat /etc/nginx/sites-available/ggnet | head -30
           
-          # Check if configuration is valid
-          # Note: We can't test actual nginx config without installing it
-          cat /opt/ggnet/config/nginx/ggnet.conf.template | head -30
+          # Check if enabled (symlinked)
+          if [ -L "/etc/nginx/sites-enabled/ggnet" ]; then
+            echo "✅ Nginx site enabled"
+          else
+            echo "⚠️  Nginx site not enabled yet"
+          fi
         else
-          echo "❌ Nginx configuration not found"
+          echo "⚠️  Nginx configuration not found at /etc/nginx/sites-available/"
+          echo "    (May be created by install script step 7)"
         fi
     
     - name: Verify PXE files
