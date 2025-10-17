@@ -191,38 +191,45 @@ echo
 
 echo -e "${BLUE}[4/10] Copying application files...${NC}"
 
-# Backup existing installation if present
-if [ -d "$INSTALL_DIR/backend" ]; then
-    BACKUP_DIR="/tmp/ggnet-backup-$(date +%Y%m%d-%H%M%S)"
-    echo -e "${YELLOW}ℹ️  Backing up existing installation to $BACKUP_DIR${NC}"
-    mkdir -p $BACKUP_DIR
-    cp -r $INSTALL_DIR/* $BACKUP_DIR/ || true
-fi
-
-# Copy backend
-rsync -a --exclude='__pycache__' --exclude='*.pyc' --exclude='venv' \
-    "$PROJECT_DIR/backend/" "$INSTALL_DIR/backend/"
-
-# Copy frontend
-rsync -a --exclude='node_modules' --exclude='dist' \
-    "$PROJECT_DIR/frontend/" "$INSTALL_DIR/frontend/"
-
-# Copy PXE files
-rsync -a "$PROJECT_DIR/pxe/" "$DATA_DIR/pxe/"
-
-# Copy docs (if exists)
-if [ -d "$PROJECT_DIR/docs" ]; then
-    mkdir -p $INSTALL_DIR/docs
-    rsync -a "$PROJECT_DIR/docs/" "$INSTALL_DIR/docs/"
+# Skip copying if we're already in the install directory
+if [ "$(realpath "$PROJECT_DIR")" = "$(realpath "$INSTALL_DIR")" ]; then
+    echo -e "${YELLOW}ℹ️  Already in install directory, skipping file copy${NC}"
+    echo -e "${GREEN}✅ Application files already in place${NC}"
 else
-    echo -e "${YELLOW}⚠️  Docs directory not found, skipping${NC}"
+    # Backup existing installation if present
+    if [ -d "$INSTALL_DIR/backend" ]; then
+        BACKUP_DIR="/tmp/ggnet-backup-$(date +%Y%m%d-%H%M%S)"
+        echo -e "${YELLOW}ℹ️  Backing up existing installation to $BACKUP_DIR${NC}"
+        mkdir -p $BACKUP_DIR
+        cp -r $INSTALL_DIR/* $BACKUP_DIR/ || true
+    fi
+
+    # Copy backend
+    rsync -a --exclude='__pycache__' --exclude='*.pyc' --exclude='venv' \
+        "$PROJECT_DIR/backend/" "$INSTALL_DIR/backend/"
+
+    # Copy frontend
+    rsync -a --exclude='node_modules' --exclude='dist' \
+        "$PROJECT_DIR/frontend/" "$INSTALL_DIR/frontend/"
+
+    # Copy PXE files
+    rsync -a "$PROJECT_DIR/pxe/" "$DATA_DIR/pxe/"
+
+    # Copy docs (if exists)
+    if [ -d "$PROJECT_DIR/docs" ]; then
+        mkdir -p $INSTALL_DIR/docs
+        rsync -a "$PROJECT_DIR/docs/" "$INSTALL_DIR/docs/"
+    else
+        echo -e "${YELLOW}⚠️  Docs directory not found, skipping${NC}"
+    fi
+
+    echo -e "${GREEN}✅ Application files copied${NC}"
 fi
 
 # Fix ownership after copying files
 echo "🔧 Setting correct ownership..."
 chown -R $GGNET_USER:$GGNET_USER $INSTALL_DIR
 
-echo -e "${GREEN}✅ Application files copied${NC}"
 echo
 
 ################################################################################
