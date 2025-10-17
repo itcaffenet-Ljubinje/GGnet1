@@ -59,7 +59,7 @@ app.add_middleware(
 async def health_check():
     """
     Simple health check endpoint
-    
+
     Returns 200 OK if server is running.
     """
     return {"status": "ok"}
@@ -70,11 +70,11 @@ async def health_check():
 async def get_status():
     """
     System status and health check
-    
+
     Returns app name, version, uptime, and basic system stats.
     """
     uptime_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
-    
+
     return {
         "app_name": settings.APP_NAME,
         "version": settings.VERSION,
@@ -115,7 +115,7 @@ app.include_router(machines.router, prefix="/api/v1", tags=["machines"])
 async def get_system_logs(limit: int = 100):
     """
     Get system logs (placeholder)
-    
+
     TODO: Implement actual log reading from journald or log files
     """
     return {
@@ -137,7 +137,7 @@ async def get_system_logs(limit: int = 100):
 async def get_system_metrics():
     """
     Get system metrics including cache and array stats
-    
+
     TODO: Integrate with actual cache manager
     TODO: Read RAID/ZFS array statistics
     """
@@ -171,4 +171,3 @@ if __name__ == "__main__":
         reload=settings.DEBUG,
         log_level="info"
     )
-

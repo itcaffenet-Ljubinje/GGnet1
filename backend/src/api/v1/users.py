@@ -38,7 +38,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     is_active: bool
-    
+
     class Config:
         from_attributes = True
 
@@ -64,7 +64,7 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    
+
     encoded_jwt = jwt.encode(
         to_encode,
         settings.SECRET_KEY,
@@ -84,23 +84,23 @@ async def login(
         select(User).where(User.username == form_data.username)
     )
     user = result.scalar_one_or_none()
-    
+
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Update last login
     user.last_login = datetime.utcnow()
     await db.commit()
-    
+
     # Create token
     access_token = create_access_token(
         data={"sub": user.username, "user_id": user.user_id, "role": user.role}
     )
-    
+
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -116,18 +116,18 @@ async def create_user(
     )
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already exists")
-    
+
     user = User(
         username=user_data.username,
         email=user_data.email,
         password_hash=get_password_hash(user_data.password),
         role=user_data.role
     )
-    
+
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    
+
     return user
 
 
@@ -138,20 +138,21 @@ async def get_current_user(
 ):
     """Get current user from token"""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[
+                settings.JWT_ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(status_code=401, detail="Invalid token")
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    
+
     result = await db.execute(
         select(User).where(User.username == username)
     )
     user = result.scalar_one_or_none()
-    
+
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    return user
 
+    return user

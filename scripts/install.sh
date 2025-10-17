@@ -106,6 +106,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo -e "${GREEN}✅ Project directory: $PROJECT_DIR${NC}"
+
+# Detect network interfaces
+NETWORK_INTERFACES=$(ip -4 -br a show scope global | awk '{print $1}' | tr '\n' ' ')
+echo -e "${GREEN}✅ Detected network interfaces: $NETWORK_INTERFACES${NC}"
 echo
 
 ################################################################################
@@ -143,6 +147,54 @@ if [ "$SKIP_PACKAGES" = false ]; then
     echo -e "${GREEN}✅ Packages installed${NC}"
 else
     echo -e "${YELLOW}[2/10] Skipping package installation${NC}"
+fi
+
+echo
+
+################################################################################
+# Step 2.5: Network Bridge Configuration (Optional)
+################################################################################
+
+# Ask about network bridge creation (inspired by ggRock)
+if [ -t 0 ]; then  # Only ask if interactive terminal
+    echo -e "${BLUE}[Optional] Network Bridge Configuration${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "ggNet can create a network bridge for better VM/container networking."
+    echo "This is similar to ggRock's network configuration."
+    echo ""
+    echo "Detected interfaces: $NETWORK_INTERFACES"
+    echo ""
+    read -p "Would you like to create a network bridge? (yes/no): " CREATE_BRIDGE
+    
+    if [ "$CREATE_BRIDGE" = "yes" ]; then
+        # List interfaces
+        echo ""
+        echo "Available network interfaces:"
+        ip -4 -br a show scope global
+        echo ""
+        
+        read -p "Enter physical interface name (e.g., eth0, enp2s0): " PHYS_INTERFACE
+        read -p "Enter bridge name (e.g., br0, vmbr0): " BRIDGE_NAME
+        
+        if [ -n "$PHYS_INTERFACE" ] && [ -n "$BRIDGE_NAME" ]; then
+            echo ""
+            echo "Creating bridge $BRIDGE_NAME on $PHYS_INTERFACE..."
+            
+            # Check if bridge creation script exists
+            if [ -f "$PROJECT_DIR/scripts/create_network_bridge.py" ]; then
+                python3 "$PROJECT_DIR/scripts/create_network_bridge.py" "$PHYS_INTERFACE" "$BRIDGE_NAME" || {
+                    echo -e "${YELLOW}⚠️  Bridge creation failed, continuing without bridge${NC}"
+                }
+            else
+                echo -e "${YELLOW}⚠️  Bridge creation script not found, skipping${NC}"
+            fi
+        fi
+    else
+        echo -e "${YELLOW}ℹ️  Skipping network bridge creation${NC}"
+        echo "   You can create it later with: scripts/create_network_bridge.py"
+    fi
+else
+    echo -e "${YELLOW}[2.5/10] Skipping network bridge (non-interactive mode)${NC}"
 fi
 
 echo

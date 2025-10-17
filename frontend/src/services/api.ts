@@ -75,6 +75,26 @@ export async function deleteMachine(id: number): Promise<void> {
   });
 }
 
+export async function powerOperation(
+  id: number,
+  operation: 'power_on' | 'power_off' | 'reboot'
+): Promise<{ success: boolean; message: string }> {
+  return request(`/machines/${id}/power`, {
+    method: 'POST',
+    body: JSON.stringify({ operation }),
+  });
+}
+
+export async function setKeepWriteback(
+  id: number,
+  keep: boolean
+): Promise<Machine> {
+  return request(`/machines/${id}/keep_writeback`, {
+    method: 'PATCH',
+    body: JSON.stringify({ keep }),
+  });
+}
+
 export async function applyWriteback(
   id: number,
   comment?: string
@@ -225,7 +245,12 @@ export async function getStorageStatus(): Promise<StorageStatus> {
 }
 
 export async function getSystemStatus(): Promise<SystemStatus> {
-  return request<SystemStatus>('/status');
+  // Status endpoint is at /api/status (not /api/v1/status)
+  const response = await fetch('/api/status');
+  if (!response.ok) {
+    throw new Error(`Failed to fetch status: ${response.statusText}`);
+  }
+  return response.json();
 }
 
 export async function rebootServer(): Promise<{ success: boolean }> {

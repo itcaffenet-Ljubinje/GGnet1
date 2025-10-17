@@ -33,7 +33,7 @@ class ImageResponse(BaseModel):
     status: ImageStatus
     is_default: bool
     creation_date: str
-    
+
     class Config:
         from_attributes = True
 
@@ -46,13 +46,13 @@ async def list_images(
 ):
     """List all images, optionally filtered by type"""
     query = select(Image)
-    
+
     if type:
         query = query.where(Image.type == type)
-    
+
     result = await db.execute(query.order_by(Image.creation_date.desc()))
     images = result.scalars().all()
-    
+
     return images
 
 
@@ -63,17 +63,17 @@ async def create_image(
 ):
     """
     Create new image
-    
+
     TODO: Implement actual image creation:
     - Create ZFS volume
     - Format filesystem
     - Setup iSCSI target
     - Import from VHD/VHDX if provided
     """
-    
+
     # Generate storage path
     storage_path = f"/pool0/ggnet/images/{image_data.type}/{image_data.name}"
-    
+
     image = Image(
         name=image_data.name,
         type=image_data.type,
@@ -82,11 +82,11 @@ async def create_image(
         is_default=image_data.is_default,
         status=ImageStatus.ACTIVE
     )
-    
+
     db.add(image)
     await db.commit()
     await db.refresh(image)
-    
+
     return image
 
 
@@ -100,16 +100,15 @@ async def delete_image(
         select(Image).where(Image.image_id == image_id)
     )
     image = result.scalar_one_or_none()
-    
+
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
-    
+
     # TODO: Check if image is in use by any machines
     # TODO: Delete ZFS volume
     # TODO: Remove iSCSI target
-    
+
     await db.delete(image)
     await db.commit()
-    
-    return {"success": True, "image_id": image_id}
 
+    return {"success": True, "image_id": image_id}

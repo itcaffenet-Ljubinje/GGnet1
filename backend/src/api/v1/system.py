@@ -67,7 +67,7 @@ async def reboot_server():
 async def restart_service(service: str):
     """
     Restart system service
-    
+
     Services: nginx, dnsmasq, postgresql, ggnet-backend
     """
     # TODO: Implement service restart
@@ -77,4 +77,3 @@ async def restart_service(service: str):
         "service": service,
         "message": f"{service} restart initiated"
     }
-

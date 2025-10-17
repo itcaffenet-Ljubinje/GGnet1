@@ -39,7 +39,7 @@ async def get_network_config():
 async def update_network_config(config: NetworkConfig):
     """
     Update network configuration
-    
+
     TODO: Update dnsmasq or ISC DHCP configuration
     TODO: Reload network services
     """
@@ -56,4 +56,3 @@ async def get_dhcp_leases():
     return {
         "leases": []
     }
-
