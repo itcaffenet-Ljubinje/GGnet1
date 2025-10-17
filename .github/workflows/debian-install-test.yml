@@ -329,6 +329,7 @@ jobs:
         path: |
           /opt/ggnet/
         retention-days: 7
+        if-no-files-found: ignore
 
 # Optional: Add a job to test on actual Debian server via SSH
 # debian-ssh-install:
