@@ -77,11 +77,11 @@ export async function deleteMachine(id: number): Promise<void> {
 
 export async function powerOperation(
   id: number,
-  operation: 'power_on' | 'power_off' | 'reboot'
+  action: 'power_on' | 'power_off' | 'reboot'
 ): Promise<{ success: boolean; message: string }> {
   return request(`/machines/${id}/power`, {
     method: 'POST',
-    body: JSON.stringify({ operation }),
+    body: JSON.stringify({ operation: action }),
   });
 }
 
@@ -102,27 +102,6 @@ export async function applyWriteback(
   return request(`/machines/${id}/apply_writeback`, {
     method: 'POST',
     body: JSON.stringify({ comment }),
-  });
-}
-
-export async function powerOperation(
-  id: number,
-  action: 'power_on' | 'power_off' | 'reboot'
-): Promise<{ success: boolean; machine_id: number; action: string }> {
-  // Map frontend action names to backend action names
-  const actionMap: Record<string, string> = {
-    'power_on': 'start',
-    'power_off': 'stop',
-    'reboot': 'reboot'
-  };
-  
-  const backendAction = actionMap[action];
-  if (!backendAction) {
-    throw new Error(`Invalid action: ${action}`);
-  }
-  
-  return request(`/machines/${id}/power?action=${backendAction}`, {
-    method: 'POST',
   });
 }
 
