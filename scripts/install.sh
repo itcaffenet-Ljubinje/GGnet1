@@ -218,6 +218,10 @@ else
     echo -e "${YELLOW}⚠️  Docs directory not found, skipping${NC}"
 fi
 
+# Fix ownership after copying files
+echo "🔧 Setting correct ownership..."
+chown -R $GGNET_USER:$GGNET_USER $INSTALL_DIR
+
 echo -e "${GREEN}✅ Application files copied${NC}"
 echo
 
