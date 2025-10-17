@@ -290,6 +290,10 @@ if [ "$PKG_MGR" = "npm" ]; then
         sudo -u $GGNET_USER rm -rf node_modules package-lock.json
         sudo -u $GGNET_USER npm install
     }
+    
+    # Explicitly install rollup native binding (workaround for npm bug)
+    echo "📦 Installing rollup native bindings..."
+    sudo -u $GGNET_USER npm install @rollup/rollup-linux-x64-gnu --save-optional 2>/dev/null || echo "  ⚠️  Optional binding install attempted"
 else
     sudo -u $GGNET_USER $PKG_MGR install
 fi
