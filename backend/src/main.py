@@ -54,7 +54,18 @@ app.add_middleware(
 )
 
 
-# Health/Status endpoint
+# Health endpoint
+@app.get("/health")
+async def health_check():
+    """
+    Simple health check endpoint
+    
+    Returns 200 OK if server is running.
+    """
+    return {"status": "ok"}
+
+
+# Status endpoint with detailed info
 @app.get("/api/status")
 async def get_status():
     """

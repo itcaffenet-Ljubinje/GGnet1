@@ -20,9 +20,9 @@ from db.base import init_db, async_session_maker
 from db.models import Machine, Image
 
 
-@pytest.fixture
+@pytest.fixture(scope="session", autouse=True)
 async def test_db():
-    """Initialize test database"""
+    """Initialize test database session-wide"""
     await init_db()
     yield
     # Cleanup handled by test database
@@ -30,7 +30,19 @@ async def test_db():
 
 @pytest.fixture
 def client():
-    """Test client for FastAPI"""
+    """Test client for FastAPI with initialized database"""
+    # Ensure database is initialized before creating client
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    # Run init_db if not already done
+    if async_session_maker is None:
+        loop.run_until_complete(init_db())
+    
     return TestClient(app)
 
 
