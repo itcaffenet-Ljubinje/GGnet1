@@ -85,6 +85,27 @@ export async function applyWriteback(
   });
 }
 
+export async function powerOperation(
+  id: number,
+  action: 'power_on' | 'power_off' | 'reboot'
+): Promise<{ success: boolean; machine_id: number; action: string }> {
+  // Map frontend action names to backend action names
+  const actionMap: Record<string, string> = {
+    'power_on': 'start',
+    'power_off': 'stop',
+    'reboot': 'reboot'
+  };
+  
+  const backendAction = actionMap[action];
+  if (!backendAction) {
+    throw new Error(`Invalid action: ${action}`);
+  }
+  
+  return request(`/machines/${id}/power?action=${backendAction}`, {
+    method: 'POST',
+  });
+}
+
 //=============================================================================
 // Images API
 //=============================================================================
