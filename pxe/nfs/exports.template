@@ -1,0 +1,121 @@
+################################################################################
+# ggNet NFS Exports Configuration
+# Copy to /etc/exports and run: exportfs -ra
+################################################################################
+
+################################################################################
+# Boot Images (Read-Only)
+################################################################################
+# Shared boot files: kernels, initrd, boot assets
+# All clients can read, none can write
+/var/lib/ggnet/boot *(ro,sync,no_subtree_check,no_root_squash,insecure)
+
+# Alternative path if using pxe/nfs/boot_images
+/opt/ggnet/pxe/nfs/boot_images *(ro,sync,no_subtree_check,no_root_squash,insecure)
+
+################################################################################
+# System Images (Read-Only)
+################################################################################
+# Master OS images - shared across all clients
+# Mounted read-only, writes go to writebacks
+/pool0/ggnet/images/system 192.168.1.0/24(ro,sync,no_subtree_check,no_root_squash,insecure,fsid=1)
+
+# Alternative: Export entire images directory
+# /pool0/ggnet/images *(ro,sync,no_subtree_check,no_root_squash,insecure,fsid=1)
+
+################################################################################
+# Game Images (Read-Only)
+################################################################################
+# Game library images - shared across all clients
+/pool0/ggnet/images/games 192.168.1.0/24(ro,sync,no_subtree_check,no_root_squash,insecure,fsid=2)
+
+################################################################################
+# Writebacks (Read-Write, Per-Client)
+################################################################################
+# Per-client write storage
+# SECURITY: Restrict to specific subnet
+# Each client mounts their own writeback subdirectory
+/pool0/ggnet/writebacks 192.168.1.0/24(rw,async,no_subtree_check,no_root_squash,insecure,fsid=3)
+
+# Alternative: Export individual writeback per machine (more secure)
+# /pool0/ggnet/writebacks/machine-1 192.168.1.101(rw,async,no_subtree_check,no_root_squash,insecure)
+# /pool0/ggnet/writebacks/machine-2 192.168.1.102(rw,async,no_subtree_check,no_root_squash,insecure)
+
+################################################################################
+# NFS Options Explained
+################################################################################
+# ro              = Read-only
+# rw              = Read-write
+# sync            = Write changes immediately (safer, slower)
+# async           = Buffer writes (faster, less safe for writebacks)
+# no_subtree_check = Don't check subdirectory permissions (performance)
+# no_root_squash  = Allow root on client to be root on server (needed for boot)
+# insecure        = Allow connections from ports > 1024
+# fsid=N          = Unique filesystem ID for NFSv4
+
+################################################################################
+# Per-Machine NFS Mounts (Client-Side)
+################################################################################
+# Clients mount these in their initrd or boot process:
+#
+# # Mount system image (read-only)
+# mount -t nfs -o ro,nolock 192.168.1.1:/pool0/ggnet/images/system/windows10 /mnt/system
+#
+# # Mount game images (read-only)
+# mount -t nfs -o ro,nolock 192.168.1.1:/pool0/ggnet/images/games/steam /mnt/games
+#
+# # Mount writeback (read-write)
+# mount -t nfs -o rw,nolock 192.168.1.1:/pool0/ggnet/writebacks/machine-1 /mnt/writeback
+
+################################################################################
+# Production Notes
+################################################################################
+# 1. NFS is simpler than iSCSI but has lower performance
+# 2. For production, consider iSCSI for images (see image_service.py)
+# 3. Use async for writebacks to improve performance
+# 4. Use sync for critical data to prevent corruption
+# 5. Restrict exports to specific IPs for security
+# 6. Use NFSv4 for better security and performance
+# 7. Monitor NFS with: nfsstat -s
+
+################################################################################
+# Security Hardening
+################################################################################
+# For production deployments:
+# 1. Replace * with specific IP ranges
+# 2. Use firewall to restrict NFS ports (2049, 111, etc.)
+# 3. Use Kerberos for NFS authentication (sec=krb5)
+# 4. Use separate VLANs for storage network
+# 5. Enable NFSv4 ACLs for fine-grained permissions
+
+# Example with Kerberos:
+# /pool0/ggnet/images 192.168.1.0/24(ro,sync,sec=krb5,no_subtree_check)
+
+################################################################################
+# Testing NFS Exports
+################################################################################
+# After editing, reload exports:
+#   exportfs -ra
+#
+# Verify exports:
+#   exportfs -v
+#   showmount -e localhost
+#
+# Test from client:
+#   showmount -e 192.168.1.1
+#   mount -t nfs 192.168.1.1:/pool0/ggnet/images/system /mnt/test
+#
+# Check NFS statistics:
+#   nfsstat -s
+#   nfsstat -c
+
+################################################################################
+# Alternative: iSCSI Instead of NFS
+################################################################################
+# iSCSI provides better performance for block-level access
+# See: backend/src/services/image_service.py
+# Use NFS for: Boot files, shared configs
+# Use iSCSI for: System images, writebacks
+################################################################################
+
+

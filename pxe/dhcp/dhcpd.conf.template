@@ -1,0 +1,180 @@
+################################################################################
+# ggNet DHCP Configuration Template
+# For ISC DHCP Server with per-machine MAC address grouping
+################################################################################
+
+# Global Options
+default-lease-time 43200;        # 12 hours
+max-lease-time 86400;             # 24 hours
+authoritative;
+
+# DNS and domain settings
+option domain-name "ggnet.local";
+option domain-name-servers 8.8.8.8, 8.8.4.4;
+
+# Network boot options
+option space PXE;
+option PXE.mtftp-ip code 1 = ip-address;
+option PXE.mtftp-cport code 2 = unsigned integer 16;
+option PXE.mtftp-sport code 3 = unsigned integer 16;
+option PXE.mtftp-tmout code 4 = unsigned integer 8;
+option PXE.mtftp-delay code 5 = unsigned integer 8;
+
+# Log DHCP activity
+log-facility local7;
+
+################################################################################
+# Network Subnet Configuration
+################################################################################
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    
+    # Dynamic IP range for unknown machines
+    range 192.168.1.100 192.168.1.200;
+    
+    # Gateway
+    option routers 192.168.1.1;
+    
+    # Broadcast address
+    option broadcast-address 192.168.1.255;
+    
+    # Default PXE boot settings
+    # These apply to all machines unless overridden in groups
+    
+    # For iPXE (HTTP boot) - Recommended for ggNet
+    if exists user-class and option user-class = "iPXE" {
+        # Machine already has iPXE, send main config
+        filename "http://192.168.1.1:5000/pxe/default.ipxe";
+    } else {
+        # First stage: chainload iPXE
+        if option architecture-type = 00:07 {
+            # UEFI x64
+            filename "ipxe/ipxe-x64.efi";
+        } elsif option architecture-type = 00:09 {
+            # UEFI x64 alternative
+            filename "ipxe/ipxe-x64.efi";
+        } elsif option architecture-type = 00:00 {
+            # Legacy BIOS
+            filename "ipxe/undionly.kpxe";
+        } else {
+            # Default to BIOS
+            filename "ipxe/undionly.kpxe";
+        }
+        # TFTP server for iPXE bootloader
+        next-server 192.168.1.1;
+    }
+}
+
+################################################################################
+# Machine Groups by Image Assignment
+################################################################################
+
+# Group: Windows 10 Gaming Machines
+group {
+    # Common settings for this group
+    option vendor-encapsulated-options "ggnet:windows10-gaming";
+    
+    # Machine 1
+    host gaming-pc-01 {
+        hardware ethernet 00:11:22:33:44:01;
+        fixed-address 192.168.1.101;
+        option host-name "gaming-pc-01";
+        # Override boot config for this specific machine
+        # filename "http://192.168.1.1:5000/pxe/00:11:22:33:44:01.ipxe";
+    }
+    
+    # Machine 2
+    host gaming-pc-02 {
+        hardware ethernet 00:11:22:33:44:02;
+        fixed-address 192.168.1.102;
+        option host-name "gaming-pc-02";
+    }
+    
+    # Machine 3
+    host gaming-pc-03 {
+        hardware ethernet 00:11:22:33:44:03;
+        fixed-address 192.168.1.103;
+        option host-name "gaming-pc-03";
+    }
+}
+
+# Group: Windows 11 Pro Machines
+group {
+    option vendor-encapsulated-options "ggnet:windows11-pro";
+    
+    host workstation-01 {
+        hardware ethernet 00:11:22:33:44:04;
+        fixed-address 192.168.1.104;
+        option host-name "workstation-01";
+    }
+}
+
+# Group: Ubuntu/Linux Machines
+group {
+    option vendor-encapsulated-options "ggnet:ubuntu-22.04";
+    
+    host linux-test-01 {
+        hardware ethernet 00:11:22:33:44:05;
+        fixed-address 192.168.1.105;
+        option host-name "linux-test-01";
+    }
+}
+
+# Group: Admin/Maintenance Machines (Keep Writeback)
+group {
+    option vendor-encapsulated-options "ggnet:admin:keep-writeback";
+    
+    host admin-pc {
+        hardware ethernet 00:11:22:33:44:10;
+        fixed-address 192.168.1.110;
+        option host-name "admin-pc";
+        # Admin machines can have persistent writebacks
+    }
+}
+
+################################################################################
+# Per-Machine Custom Boot (Advanced)
+################################################################################
+# For machines that need completely custom boot parameters:
+
+# host custom-config-01 {
+#     hardware ethernet AA:BB:CC:DD:EE:FF;
+#     fixed-address 192.168.1.150;
+#     option host-name "custom-config-01";
+#     
+#     # Send machine-specific iPXE script
+#     filename "http://192.168.1.1:5000/pxe/AA:BB:CC:DD:EE:FF.ipxe";
+#     
+#     # Or override kernel parameters
+#     option root-path "iscsi:192.168.1.1::::iqn.2025.net.ggnet:custom-image";
+# }
+
+################################################################################
+# Alternative: Traditional PXELinux Boot
+################################################################################
+# If not using iPXE, uncomment this section:
+
+# subnet 192.168.1.0 netmask 255.255.255.0 {
+#     range 192.168.1.100 192.168.1.200;
+#     option routers 192.168.1.1;
+#     
+#     # PXELinux TFTP boot
+#     next-server 192.168.1.1;
+#     
+#     if option architecture-type = 00:07 {
+#         filename "pxelinux.efi";
+#     } else {
+#         filename "pxelinux.0";
+#     }
+# }
+
+################################################################################
+# Notes:
+################################################################################
+# 1. MAC addresses must match those in ggNet backend database
+# 2. Fixed IPs should be outside DHCP range or use reservations
+# 3. Group names are for organization only, not enforced by DHCP
+# 4. Per-machine iPXE scripts generated by: pxe/service.py
+# 5. To reload config: systemctl restart isc-dhcp-server
+# 6. Test with: dhcpd -t -cf /etc/dhcp/dhcpd.conf
+################################################################################
+

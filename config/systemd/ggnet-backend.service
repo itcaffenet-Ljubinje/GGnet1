@@ -1,0 +1,37 @@
+[Unit]
+Description=ggNet Backend API Server
+Documentation=https://github.com/yourusername/ggnet
+After=network.target
+
+[Service]
+Type=simple
+User=ggnet
+Group=ggnet
+WorkingDirectory=/opt/ggnet/backend/src
+
+# Environment
+Environment="PATH=/opt/ggnet/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=-/etc/ggnet/backend.conf
+
+# Start command - Backend runs on port 8080, Nginx proxies to port 80
+ExecStart=/opt/ggnet/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ggnet-backend
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+
+
