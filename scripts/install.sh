@@ -210,9 +210,13 @@ rsync -a --exclude='node_modules' --exclude='dist' \
 # Copy PXE files
 rsync -a "$PROJECT_DIR/pxe/" "$DATA_DIR/pxe/"
 
-# Copy docs
-mkdir -p $INSTALL_DIR/docs
-rsync -a "$PROJECT_DIR/docs/" "$INSTALL_DIR/docs/"
+# Copy docs (if exists)
+if [ -d "$PROJECT_DIR/docs" ]; then
+    mkdir -p $INSTALL_DIR/docs
+    rsync -a "$PROJECT_DIR/docs/" "$INSTALL_DIR/docs/"
+else
+    echo -e "${YELLOW}⚠️  Docs directory not found, skipping${NC}"
+fi
 
 echo -e "${GREEN}✅ Application files copied${NC}"
 echo
