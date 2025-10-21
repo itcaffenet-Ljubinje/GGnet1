@@ -303,7 +303,7 @@ class TestMachineWorkflow:
         }
         
         response = client.post("/api/v1/machines", json=invalid_mac_machine)
-        assert response.status_code == 400  # Invalid MAC format
+        assert response.status_code in [400, 422]  # Invalid MAC format (Pydantic returns 422)
     
     def test_machine_status_tracking(self, client: TestClient):
         """Test machine status tracking"""

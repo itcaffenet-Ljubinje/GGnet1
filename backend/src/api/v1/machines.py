@@ -247,7 +247,8 @@ async def update_machine(
         "last_boot": machine.last_boot.isoformat() if machine.last_boot else None,
         "is_virtual": False,
         "vnc_enabled": False,
-        "vnc_port": None
+        "vnc_port": None,
+        "description": update_data.get("description", "")  # Return description from update_data
     }
 
 

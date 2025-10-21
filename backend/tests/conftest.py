@@ -71,6 +71,32 @@ def mock_db():
     return db
 
 
+@pytest.fixture(autouse=True)
+async def cleanup_database():
+    """Auto-cleanup database after each test to prevent duplicate key errors"""
+    yield
+    # Cleanup after test
+    try:
+        from db.base import init_db, SessionLocal
+        from db.models import Snapshot, Writeback, Machine, Image
+        
+        # Wait a bit for any pending transactions
+        import asyncio
+        await asyncio.sleep(0.1)
+        
+        # Clean up in reverse order of dependencies
+        async with SessionLocal() as db:
+            # Delete all test data
+            await db.execute("DELETE FROM snapshots")
+            await db.execute("DELETE FROM writebacks")
+            await db.execute("DELETE FROM machines")
+            await db.execute("DELETE FROM images")
+            await db.commit()
+    except Exception as e:
+        # Ignore cleanup errors
+        pass
+
+
 @pytest.fixture
 def client():
     """

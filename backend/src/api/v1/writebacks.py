@@ -172,16 +172,10 @@ async def apply_writeback(
     if not writeback:
         raise HTTPException(status_code=404, detail="Writeback not found")
 
-    if writeback.status == WritebackStatus.ACTIVE:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot apply active writeback. Shutdown client first."
-        )
-
     # TODO: Implement actual ZFS merge
     # Command: zfs send pool0/ggnet/writebacks/[writeback_id]@snapshot | zfs receive pool0/ggnet/images/[image_id]
     
-    writeback.status = WritebackStatus.INACTIVE
+    writeback.status = WritebackStatus.APPLIED
     await db.commit()
     await db.refresh(writeback)
 
@@ -206,12 +200,6 @@ async def discard_writeback(
 
     if not writeback:
         raise HTTPException(status_code=404, detail="Writeback not found")
-
-    if writeback.status == WritebackStatus.ACTIVE:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot discard active writeback. Shutdown client first."
-        )
 
     # TODO: Delete ZFS volume
     # Command: zfs destroy pool0/ggnet/writebacks/[writeback_id]

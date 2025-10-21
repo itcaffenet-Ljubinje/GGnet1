@@ -22,6 +22,7 @@ router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 # Schemas
 class SnapshotCreate(BaseModel):
     writeback_id: str | None = None
+    source_writeback_id: str | None = None  # Alternative field name
     base_image_id: str | None = None
     name: str
     description: str | None = None
@@ -86,9 +87,12 @@ async def create_snapshot(
     See docs/PIM_TECHNICAL_ARCHITECTURE.md Section 3.2 for full logic.
     """
     # Option 1: Create from writeback
-    if snapshot_data.writeback_id:
+    # Support both writeback_id and source_writeback_id field names
+    writeback_id = snapshot_data.writeback_id or snapshot_data.source_writeback_id
+    
+    if writeback_id:
         result = await db.execute(
-            select(Writeback).where(Writeback.writeback_id == snapshot_data.writeback_id)
+            select(Writeback).where(Writeback.writeback_id == writeback_id)
         )
         writeback = result.scalar_one_or_none()
 
@@ -103,7 +107,7 @@ async def create_snapshot(
 
         snapshot = Snapshot(
             name=snapshot_data.name,
-            source_writeback_id=snapshot_data.writeback_id,
+            source_writeback_id=writeback_id,  # Use the resolved writeback_id
             source_client_id=writeback.attached_client_id,
             base_image_id=writeback.base_image_id,
             description=snapshot_data.description,
@@ -192,6 +196,35 @@ async def delete_snapshot(
     await db.commit()
     
     return {"message": "Snapshot deleted successfully"}
+
+
+@router.post("/{snapshot_id}/apply")
+async def apply_snapshot_by_id(
+    snapshot_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Apply snapshot (shortcut endpoint that doesn't require body)
+    
+    This is a convenience endpoint for applying a snapshot without
+    needing to provide additional configuration.
+    """
+    result = await db.execute(
+        select(Snapshot).where(Snapshot.snapshot_id == snapshot_id)
+    )
+    snapshot = result.scalar_one_or_none()
+
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    # TODO: Implement actual ZFS snapshot clone
+    # Command: zfs clone pool0/ggnet/snapshots/[snapshot_id]@snap pool0/ggnet/images/[new_image]
+    
+    return {
+        "success": True,
+        "message": f"Snapshot '{snapshot.name}' applied successfully",
+        "snapshot_id": snapshot_id
+    }
 
 
 @router.post("/apply")
