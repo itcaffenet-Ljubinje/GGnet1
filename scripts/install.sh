@@ -1,631 +1,471 @@
 #!/bin/bash
-################################################################################
-# ggNet Installation Script
 #
-# Installs ggNet diskless boot management system on Debian 11+ / Ubuntu 22+
-# This script is idempotent and can be run multiple times safely.
+# ggNet One-Line Installer
+# 
+# Complete installation script for ggNet diskless boot system
+# Supports: Debian 11/12, Ubuntu 20.04/22.04/24.04
 #
 # Usage:
-#   sudo ./scripts/install.sh
-#   sudo ./scripts/install.sh --skip-packages  # Skip apt install
-#   sudo ./scripts/install.sh --setup-db       # Also setup database
-################################################################################
+#   wget -O - https://raw.githubusercontent.com/itcaffenet-Ljubinje/GGnet1/main/install.sh | sudo bash
+#
+# Or:
+#   git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git
+#   cd GGnet1
+#   sudo bash install.sh
+#
 
-set -e  # Exit on error
-set -u  # Exit on undefined variable
+set -e
 
-# Colors
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-GGNET_USER="ggnet"
-INSTALL_DIR="/opt/ggnet"
-DATA_DIR="/srv/ggnet"
-CONFIG_DIR="/etc/ggnet"
-LOG_DIR="/var/log/ggnet"
+# Logging functions
+print_header() {
+    echo ""
+    echo "==========================================================================="
+    echo -e "${BLUE}$1${NC}"
+    echo "==========================================================================="
+    echo ""
+}
 
-# Parse arguments
-SKIP_PACKAGES=false
-SETUP_DB=false
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
 
-for arg in "$@"; do
-    case $arg in
-        --skip-packages) SKIP_PACKAGES=true ;;
-        --setup-db) SETUP_DB=true ;;
-        --help)
-            echo "ggNet Installation Script"
-            echo ""
-            echo "Usage: sudo $0 [OPTIONS]"
-            echo ""
-            echo "Options:"
-            echo "  --skip-packages  Skip apt package installation"
-            echo "  --setup-db       Setup PostgreSQL database"
-            echo "  --help           Show this help"
-            exit 0
-            ;;
-    esac
-done
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
 
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  ggNet Installation Script${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
 
-################################################################################
-# Step 1: Validate Prerequisites
-################################################################################
-
-echo -e "${BLUE}[1/10] Validating prerequisites...${NC}"
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then 
-    echo -e "${RED}❌ This script must be run as root${NC}"
-    echo "   Usage: sudo $0"
+    print_error "This script must be run as root"
+    echo "Usage: sudo bash install.sh"
     exit 1
 fi
 
-# Check OS version
+print_header "ggNet Installation Script"
+
+echo "This will install:"
+echo "  • ZFS file system"
+echo "  • PostgreSQL database"
+echo "  • Python backend with FastAPI"
+echo "  • React frontend"
+echo "  • Nginx web server"
+echo "  • Systemd services"
+echo ""
+echo "Installation directory: /opt/ggnet"
+echo ""
+read -p "Continue with installation? [y/N] " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    print_info "Installation cancelled"
+    exit 0
+fi
+
+#############################################################################
+# 1. DETECT OS
+#############################################################################
+print_header "Step 1: Detecting Operating System"
+
 if [ -f /etc/os-release ]; then
     . /etc/os-release
-    echo -e "${GREEN}✅ OS: $NAME $VERSION_ID${NC}"
-    
-    # Validate supported OS
-    case "$ID" in
-        debian)
-            if [ "${VERSION_ID%%.*}" -lt 11 ]; then
-                echo -e "${RED}❌ Debian 11+ required (detected: $VERSION_ID)${NC}"
-                exit 1
-            fi
-            ;;
-        ubuntu)
-            if [ "${VERSION_ID%%.*}" -lt 22 ]; then
-                echo -e "${RED}❌ Ubuntu 22+ required (detected: $VERSION_ID)${NC}"
-                exit 1
-            fi
-            ;;
-        *)
-            echo -e "${YELLOW}⚠️  Unsupported OS: $ID${NC}"
-            echo "   Supported: Debian 11+, Ubuntu 22+"
-            read -p "Continue anyway? (yes/no): " confirm
-            if [ "$confirm" != "yes" ]; then
-                exit 1
-            fi
-            ;;
-    esac
+    OS=$ID
+    VER=$VERSION_ID
+    print_info "Detected: $PRETTY_NAME"
 else
-    echo -e "${RED}❌ Cannot determine OS version${NC}"
+    print_error "Cannot detect OS. Only Debian/Ubuntu supported."
     exit 1
 fi
 
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+if [ "$OS" != "debian" ] && [ "$OS" != "ubuntu" ]; then
+    print_error "Unsupported OS: $OS"
+    print_error "Only Debian and Ubuntu are supported"
+    exit 1
+fi
 
-echo -e "${GREEN}✅ Project directory: $PROJECT_DIR${NC}"
+#############################################################################
+# 2. UPDATE SYSTEM
+#############################################################################
+print_header "Step 2: Updating System Packages"
 
-# Detect network interfaces
-NETWORK_INTERFACES=$(ip -4 -br a show scope global | awk '{print $1}' | tr '\n' ' ')
-echo -e "${GREEN}✅ Detected network interfaces: $NETWORK_INTERFACES${NC}"
-echo
+print_info "Running apt-get update..."
+apt-get update
 
-################################################################################
-# Step 2: Install System Packages
-################################################################################
+print_info "Upgrading installed packages..."
+apt-get upgrade -y
 
-if [ "$SKIP_PACKAGES" = false ]; then
-    echo -e "${BLUE}[2/10] Installing system packages...${NC}"
-    
-    # Update package lists
+print_success "System updated"
+
+#############################################################################
+# 3. INSTALL DEPENDENCIES
+#############################################################################
+print_header "Step 3: Installing Dependencies"
+
+print_info "Installing essential packages..."
+apt-get install -y \
+    curl \
+    wget \
+    git \
+    build-essential \
+    software-properties-common \
+    gnupg2 \
+    lsb-release
+
+print_info "Installing Python 3..."
+apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev
+
+print_info "Installing PostgreSQL..."
+apt-get install -y \
+    postgresql \
+    postgresql-contrib \
+    libpq-dev
+
+print_info "Installing Nginx..."
+apt-get install -y nginx
+
+print_info "Installing Node.js 20.x..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs
+
+print_info "Installing network tools..."
+apt-get install -y \
+    iproute2 \
+    net-tools \
+    dnsutils \
+    iputils-ping
+
+print_success "All dependencies installed"
+
+#############################################################################
+# 4. INSTALL ZFS
+#############################################################################
+print_header "Step 4: Installing ZFS"
+
+if [ "$OS" = "debian" ]; then
+    print_info "Adding contrib repository for Debian..."
+    grep -q "contrib" /etc/apt/sources.list || \
+        echo "deb http://deb.debian.org/debian $(lsb_release -sc) contrib" >> /etc/apt/sources.list
     apt-get update
-    
-    # Install packages
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        nginx \
-        python3 \
-        python3-pip \
-        python3-venv \
-        nodejs \
-        npm \
-        isc-dhcp-server \
-        tftpd-hpa \
-        nfs-kernel-server \
-        mdadm \
-        jq \
-        rsync \
-        curl \
-        wget \
-        git \
-        sudo \
-        sqlite3 \
-        qemu-utils \
-        || { echo -e "${RED}❌ Package installation failed${NC}"; exit 1; }
-    
-    echo -e "${GREEN}✅ Packages installed${NC}"
-else
-    echo -e "${YELLOW}[2/10] Skipping package installation${NC}"
 fi
 
-echo
+print_info "Installing ZFS packages..."
+apt-get install -y linux-headers-$(uname -r)
+apt-get install -y zfsutils-linux
 
-################################################################################
-# Step 2.5: Network Bridge Configuration (Optional)
-################################################################################
-
-# Ask about network bridge creation (inspired by ggRock)
-if [ -t 0 ]; then  # Only ask if interactive terminal
-    echo -e "${BLUE}[Optional] Network Bridge Configuration${NC}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "ggNet can create a network bridge for better VM/container networking."
-    echo "This is similar to ggRock's network configuration."
-    echo ""
-    echo "Detected interfaces: $NETWORK_INTERFACES"
-    echo ""
-    read -p "Would you like to create a network bridge? (yes/no): " CREATE_BRIDGE
-    
-    if [ "$CREATE_BRIDGE" = "yes" ]; then
-        # List interfaces
-        echo ""
-        echo "Available network interfaces:"
-        ip -4 -br a show scope global
-        echo ""
-        
-        read -p "Enter physical interface name (e.g., eth0, enp2s0): " PHYS_INTERFACE
-        read -p "Enter bridge name (e.g., br0, vmbr0): " BRIDGE_NAME
-        
-        if [ -n "$PHYS_INTERFACE" ] && [ -n "$BRIDGE_NAME" ]; then
-            echo ""
-            echo "Creating bridge $BRIDGE_NAME on $PHYS_INTERFACE..."
-            
-            # Check if bridge creation script exists
-            if [ -f "$PROJECT_DIR/scripts/create_network_bridge.py" ]; then
-                python3 "$PROJECT_DIR/scripts/create_network_bridge.py" "$PHYS_INTERFACE" "$BRIDGE_NAME" || {
-                    echo -e "${YELLOW}⚠️  Bridge creation failed, continuing without bridge${NC}"
-                }
-            else
-                echo -e "${YELLOW}⚠️  Bridge creation script not found, skipping${NC}"
-            fi
-        fi
-    else
-        echo -e "${YELLOW}ℹ️  Skipping network bridge creation${NC}"
-        echo "   You can create it later with: scripts/create_network_bridge.py"
-    fi
-else
-    echo -e "${YELLOW}[2.5/10] Skipping network bridge (non-interactive mode)${NC}"
+if [ "$OS" = "debian" ]; then
+    apt-get install -y zfs-dkms
 fi
 
-echo
+print_info "Loading ZFS kernel module..."
+modprobe zfs || print_warning "ZFS module load failed (may require reboot)"
 
-################################################################################
-# Step 3: Create System User and Directories
-################################################################################
-
-echo -e "${BLUE}[3/10] Creating system user and directories...${NC}"
-
-# Create ggnet user
-if ! id "$GGNET_USER" &>/dev/null; then
-    useradd -r -m -s /bin/bash -c "ggNet System User" $GGNET_USER
-    echo -e "${GREEN}✅ User $GGNET_USER created${NC}"
+if command -v zpool &> /dev/null; then
+    print_success "ZFS installed: $(zpool --version | head -n1)"
 else
-    echo -e "${YELLOW}ℹ️  User $GGNET_USER already exists${NC}"
-fi
-
-# Create directories
-mkdir -p $INSTALL_DIR
-mkdir -p $DATA_DIR/{array,images,tftp,nfs,logs}
-mkdir -p $CONFIG_DIR
-mkdir -p $LOG_DIR
-
-echo -e "${GREEN}✅ Directories created:${NC}"
-echo "   $INSTALL_DIR"
-echo "   $DATA_DIR"
-echo "   $CONFIG_DIR"
-echo "   $LOG_DIR"
-
-# Set ownership
-chown -R $GGNET_USER:$GGNET_USER $INSTALL_DIR
-chown -R $GGNET_USER:$GGNET_USER $DATA_DIR
-chown -R $GGNET_USER:$GGNET_USER $LOG_DIR
-
-# CONFIG_DIR should be root-owned for security
-chown -R root:$GGNET_USER $CONFIG_DIR
-chmod 750 $CONFIG_DIR
-
-echo -e "${GREEN}✅ Permissions set${NC}"
-echo
-
-################################################################################
-# Step 4: Copy Application Files
-################################################################################
-
-echo -e "${BLUE}[4/10] Copying application files...${NC}"
-
-# Skip copying if we're already in the install directory
-if [ "$(realpath "$PROJECT_DIR")" = "$(realpath "$INSTALL_DIR")" ]; then
-    echo -e "${YELLOW}ℹ️  Already in install directory, skipping file copy${NC}"
-    echo -e "${GREEN}✅ Application files already in place${NC}"
-else
-    # Backup existing installation if present
-    if [ -d "$INSTALL_DIR/backend" ]; then
-        BACKUP_DIR="/tmp/ggnet-backup-$(date +%Y%m%d-%H%M%S)"
-        echo -e "${YELLOW}ℹ️  Backing up existing installation to $BACKUP_DIR${NC}"
-        mkdir -p $BACKUP_DIR
-        cp -r $INSTALL_DIR/* $BACKUP_DIR/ || true
-    fi
-
-    # Copy backend
-    rsync -a --exclude='__pycache__' --exclude='*.pyc' --exclude='venv' \
-        "$PROJECT_DIR/backend/" "$INSTALL_DIR/backend/"
-
-    # Copy frontend
-    rsync -a --exclude='node_modules' --exclude='dist' \
-        "$PROJECT_DIR/frontend/" "$INSTALL_DIR/frontend/"
-
-    # Copy PXE files
-    rsync -a "$PROJECT_DIR/pxe/" "$DATA_DIR/pxe/"
-
-    # Copy docs (if exists)
-    if [ -d "$PROJECT_DIR/docs" ]; then
-        mkdir -p $INSTALL_DIR/docs
-        rsync -a "$PROJECT_DIR/docs/" "$INSTALL_DIR/docs/"
-    else
-        echo -e "${YELLOW}⚠️  Docs directory not found, skipping${NC}"
-    fi
-
-    echo -e "${GREEN}✅ Application files copied${NC}"
-fi
-
-# Fix ownership after copying files
-echo "🔧 Setting correct ownership..."
-chown -R $GGNET_USER:$GGNET_USER $INSTALL_DIR
-
-echo
-
-################################################################################
-# Step 5: Setup Python Virtual Environment
-################################################################################
-
-echo -e "${BLUE}[5/10] Setting up Python virtual environment...${NC}"
-
-cd $INSTALL_DIR/backend
-
-# Create virtualenv
-if [ ! -d "venv" ]; then
-    sudo -u $GGNET_USER python3 -m venv venv
-    echo -e "${GREEN}✅ Virtual environment created${NC}"
-else
-    echo -e "${YELLOW}ℹ️  Virtual environment already exists${NC}"
-fi
-
-# Upgrade pip
-sudo -u $GGNET_USER venv/bin/pip install --upgrade pip
-
-# Install requirements
-echo "📦 Installing Python dependencies..."
-sudo -u $GGNET_USER venv/bin/pip install -r requirements.txt
-
-echo -e "${GREEN}✅ Python dependencies installed${NC}"
-echo
-
-################################################################################
-# Step 6: Build Frontend
-################################################################################
-
-echo -e "${BLUE}[6/10] Building frontend...${NC}"
-
-cd $INSTALL_DIR/frontend
-
-# Check for pnpm, fallback to npm
-if command -v pnpm &> /dev/null; then
-    PKG_MGR="pnpm"
-else
-    PKG_MGR="npm"
-fi
-
-echo "Using package manager: $PKG_MGR"
-
-# Update npm to latest version if using npm
-if [ "$PKG_MGR" = "npm" ]; then
-    echo "📦 Updating npm to latest version..."
-    npm install -g npm@latest 2>/dev/null || echo "  ⚠️  Couldn't update npm (non-critical)"
-fi
-
-# Install dependencies
-echo "📦 Installing frontend dependencies..."
-# Handle npm optional dependency bug: https://github.com/npm/cli/issues/4828
-if [ "$PKG_MGR" = "npm" ]; then
-    sudo -u $GGNET_USER npm install || {
-        echo "⚠️  npm install failed, trying clean install..."
-        sudo -u $GGNET_USER rm -rf node_modules package-lock.json
-        sudo -u $GGNET_USER npm install
-    }
-    
-    # Explicitly install rollup native binding (workaround for npm bug)
-    echo "📦 Installing rollup native bindings..."
-    sudo -u $GGNET_USER npm install @rollup/rollup-linux-x64-gnu --save-optional 2>/dev/null || echo "  ⚠️  Optional binding install attempted"
-else
-    sudo -u $GGNET_USER $PKG_MGR install
-fi
-
-# Build
-echo "🔨 Building frontend..."
-sudo -u $GGNET_USER $PKG_MGR run build
-
-if [ -d "dist" ]; then
-    echo -e "${GREEN}✅ Frontend built successfully${NC}"
-    echo "   Output: $INSTALL_DIR/frontend/dist"
-else
-    echo -e "${RED}❌ Frontend build failed${NC}"
+    print_error "ZFS installation failed"
     exit 1
 fi
 
-echo
+#############################################################################
+# 5. CREATE GGNET USER
+#############################################################################
+print_header "Step 5: Creating ggNet User"
 
-################################################################################
-# Step 7: Configure Nginx
-################################################################################
+if id "ggnet" &>/dev/null; then
+    print_warning "User 'ggnet' already exists"
+else
+    useradd -r -m -s /bin/bash -d /opt/ggnet -c "ggNet Service User" ggnet
+    print_success "User 'ggnet' created"
+fi
 
-echo -e "${BLUE}[7/10] Configuring Nginx...${NC}"
+#############################################################################
+# 6. CLONE/COPY SOURCE CODE
+#############################################################################
+print_header "Step 6: Setting Up Source Code"
 
-# Create Nginx configuration
-cat > /etc/nginx/sites-available/ggnet << 'EOF'
-# ggNet Nginx Configuration
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
+INSTALL_DIR="/opt/ggnet"
 
-    # Frontend static files
-    root /opt/ggnet/frontend/dist;
-    index index.html;
+if [ -d "$INSTALL_DIR/.git" ]; then
+    print_info "Updating existing installation..."
+    cd "$INSTALL_DIR"
+    sudo -u ggnet git pull origin main
+else
+    print_info "Installing to $INSTALL_DIR..."
+    
+    # Check if we're running from cloned repo
+    if [ -f "$(pwd)/install.sh" ] && [ -d "$(pwd)/backend" ]; then
+        print_info "Copying from current directory..."
+        mkdir -p "$INSTALL_DIR"
+        cp -r ./* "$INSTALL_DIR/"
+        chown -R ggnet:ggnet "$INSTALL_DIR"
+    else
+        print_info "Cloning from GitHub..."
+        git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git "$INSTALL_DIR"
+        chown -R ggnet:ggnet "$INSTALL_DIR"
+    fi
+fi
 
-    # Frontend SPA routing
-    location / {
-        try_files $uri $uri/ /index.html;
-        add_header Cache-Control "no-cache";
-    }
+cd "$INSTALL_DIR"
+print_success "Source code ready"
 
-    # Static assets caching
-    location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
+#############################################################################
+# 7. SETUP POSTGRESQL DATABASE
+#############################################################################
+print_header "Step 7: Configuring PostgreSQL Database"
 
-    # Backend API proxy
-    location /api/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # Timeouts
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
+print_info "Starting PostgreSQL service..."
+systemctl start postgresql
+systemctl enable postgresql
 
-    # PXE boot scripts (for iPXE HTTP boot)
-    location /pxe/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-    }
+print_info "Creating database and user..."
 
-    # Boot files (kernels, initrd)
-    location /boot/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-    }
-
-    # Health check
-    location /health {
-        proxy_pass http://127.0.0.1:8080/health;
-        access_log off;
-    }
-
-    # Deny access to hidden files
-    location ~ /\. {
-        deny all;
-    }
-}
+# Create database and user
+sudo -u postgres psql << EOF || print_warning "Database may already exist"
+CREATE DATABASE ggnet;
+CREATE USER ggnet WITH PASSWORD 'ggnet_secure_password_change_me';
+GRANT ALL PRIVILEGES ON DATABASE ggnet TO ggnet;
+ALTER DATABASE ggnet OWNER TO ggnet;
+\c ggnet
+GRANT ALL ON SCHEMA public TO ggnet;
 EOF
 
-# Enable site
-ln -sf /etc/nginx/sites-available/ggnet /etc/nginx/sites-enabled/ggnet
+print_success "PostgreSQL database configured"
 
-# Disable default site if exists
-if [ -f /etc/nginx/sites-enabled/default ]; then
-    rm -f /etc/nginx/sites-enabled/default
-    echo -e "${GREEN}✅ Disabled default Nginx site${NC}"
-fi
+#############################################################################
+# 8. SETUP PYTHON BACKEND
+#############################################################################
+print_header "Step 8: Setting Up Python Backend"
 
-# Test Nginx configuration
-if nginx -t 2>/dev/null; then
-    echo -e "${GREEN}✅ Nginx configuration valid${NC}"
-else
-    echo -e "${RED}❌ Nginx configuration invalid${NC}"
-    exit 1
-fi
+cd "$INSTALL_DIR/backend"
 
-echo
+print_info "Creating Python virtual environment..."
+sudo -u ggnet python3 -m venv venv
 
-################################################################################
-# Step 8: Deploy Systemd Services
-################################################################################
+print_info "Installing Python dependencies..."
+sudo -u ggnet venv/bin/pip install --upgrade pip setuptools wheel
+sudo -u ggnet venv/bin/pip install -r requirements.txt
 
-echo -e "${BLUE}[8/10] Deploying systemd services...${NC}"
+print_info "Creating backend configuration..."
+cat > /etc/ggnet/backend.conf << EOF
+DATABASE_URL=postgresql://ggnet:ggnet_secure_password_change_me@localhost/ggnet
+SECRET_KEY=$(openssl rand -hex 32)
+DEBUG=False
+ALLOWED_HOSTS=*
+EOF
 
-# Backend service
-cat > /etc/systemd/system/ggnet-backend.service << EOF
+chmod 640 /etc/ggnet/backend.conf
+chown ggnet:ggnet /etc/ggnet/backend.conf
+
+print_info "Initializing database schema..."
+cd "$INSTALL_DIR/backend"
+sudo -u ggnet bash -c 'source venv/bin/activate && python -c "
+import asyncio
+import sys
+sys.path.insert(0, \"src\")
+from db.base import init_db
+asyncio.run(init_db())
+"'
+
+print_success "Backend setup complete"
+
+#############################################################################
+# 9. CREATE SYSTEMD SERVICE
+#############################################################################
+print_header "Step 9: Creating Systemd Service"
+
+print_info "Creating ggnet-backend.service..."
+
+cat > /etc/systemd/system/ggnet-backend.service << 'EOF'
 [Unit]
 Description=ggNet Backend API Server
-Documentation=https://github.com/yourusername/ggnet
-After=network.target
+Documentation=https://github.com/itcaffenet-Ljubinje/GGnet1
+After=network.target postgresql.service
+Requires=postgresql.service
 
 [Service]
 Type=simple
-User=$GGNET_USER
-Group=$GGNET_USER
-WorkingDirectory=$INSTALL_DIR/backend/src
-
-# Environment
-Environment="PATH=$INSTALL_DIR/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
-EnvironmentFile=-$CONFIG_DIR/backend.conf
-
-# Start command
-ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080
-
-# Restart policy
-Restart=on-failure
-RestartSec=5
-StartLimitInterval=300
-StartLimitBurst=5
-
-# Logging
+User=ggnet
+Group=ggnet
+WorkingDirectory=/opt/ggnet/backend
+Environment="PATH=/opt/ggnet/backend/venv/bin:/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=-/etc/ggnet/backend.conf
+ExecStart=/opt/ggnet/backend/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=3
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=ggnet-backend
-
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-echo -e "${GREEN}✅ Systemd service files created${NC}"
-
-# Reload systemd
 systemctl daemon-reload
-echo -e "${GREEN}✅ Systemd daemon reloaded${NC}"
+systemctl enable ggnet-backend
+systemctl start ggnet-backend
 
-echo
+sleep 3
 
-################################################################################
-# Step 9: Initialize Database (Optional)
-################################################################################
-
-if [ "$SETUP_DB" = true ]; then
-    echo -e "${BLUE}[9/10] Setting up database...${NC}"
-    
-    if [ -f "$SCRIPT_DIR/setup_db.sh" ]; then
-        bash "$SCRIPT_DIR/setup_db.sh"
-    else
-        echo -e "${YELLOW}⚠️  Database setup script not found${NC}"
-        echo "   Creating database manually..."
-        
-        # Create SQLite database
-        cd $INSTALL_DIR/backend/src
-        sudo -u $GGNET_USER ../venv/bin/python ../scripts/seed_db.py || \
-            echo -e "${YELLOW}⚠️  Database seeding skipped${NC}"
-    fi
+if systemctl is-active --quiet ggnet-backend; then
+    print_success "Backend service started"
 else
-    echo -e "${YELLOW}[9/10] Skipping database setup${NC}"
-    echo "   Run manually: sudo ./scripts/setup_db.sh"
+    print_error "Backend service failed to start"
+    print_info "Check logs: sudo journalctl -u ggnet-backend -n 50"
 fi
 
-echo
+#############################################################################
+# 10. BUILD FRONTEND
+#############################################################################
+print_header "Step 10: Building Frontend"
 
-################################################################################
-# Step 10: Enable and Start Services
-################################################################################
+cd "$INSTALL_DIR/frontend"
 
-echo -e "${BLUE}[10/10] Starting services...${NC}"
+print_info "Installing npm dependencies..."
+sudo -u ggnet npm install
 
-# Enable services
-systemctl enable ggnet-backend
-echo -e "${GREEN}✅ ggNet backend enabled${NC}"
+print_info "Building production frontend..."
+sudo -u ggnet npm run build
 
-# Start backend
-systemctl start ggnet-backend
-echo -e "${GREEN}✅ ggNet backend started${NC}"
+print_success "Frontend built"
 
-# Reload Nginx
-systemctl reload nginx || systemctl restart nginx
-echo -e "${GREEN}✅ Nginx reloaded${NC}"
+#############################################################################
+# 11. CONFIGURE NGINX
+#############################################################################
+print_header "Step 11: Configuring Nginx"
 
-# Wait for backend to initialize
-echo "⏳ Waiting for backend to initialize..."
-sleep 5
+print_info "Creating Nginx configuration..."
 
-# Check backend health
-for i in {1..10}; do
-    if curl -sf http://localhost:8080/api/status > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ Backend is responding${NC}"
-        break
-    fi
+cat > /etc/nginx/sites-available/ggnet << 'EOF'
+server {
+    listen 80;
+    server_name _;
     
-    if [ $i -eq 10 ]; then
-        echo -e "${RED}❌ Backend failed to start${NC}"
-        echo "   Check logs: journalctl -u ggnet-backend -n 50"
-        exit 1
-    fi
+    # Allow large file uploads (for OS images)
+    client_max_body_size 50G;
     
-    sleep 2
-done
+    # Frontend
+    location / {
+        root /opt/ggnet/frontend/dist;
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache";
+    }
+    
+    # Backend API
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts for large uploads
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_connect_timeout 300s;
+    }
+}
+EOF
 
-echo
+ln -sf /etc/nginx/sites-available/ggnet /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
 
-################################################################################
-# Final Status
-################################################################################
+print_info "Testing Nginx configuration..."
+nginx -t
 
-# Get server IP
+print_info "Reloading Nginx..."
+systemctl reload nginx
+systemctl enable nginx
+
+print_success "Nginx configured"
+
+#############################################################################
+# 12. CREATE STORAGE DIRECTORIES
+#############################################################################
+print_header "Step 12: Creating Storage Directories"
+
+mkdir -p /var/lib/ggnet/{images,snapshots,writebacks}
+mkdir -p /var/log/ggnet
+mkdir -p /etc/ggnet
+
+chown -R ggnet:ggnet /var/lib/ggnet
+chown -R ggnet:ggnet /var/log/ggnet
+chown -R ggnet:ggnet /etc/ggnet
+
+print_success "Storage directories created"
+
+#############################################################################
+# INSTALLATION COMPLETE
+#############################################################################
+print_header "Installation Complete!"
+
 SERVER_IP=$(hostname -I | awk '{print $1}')
 
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}✅ ggNet Installation Complete!${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo
-echo -e "${BLUE}📊 Installation Summary:${NC}"
-echo "   Installation directory: $INSTALL_DIR"
-echo "   Data directory: $DATA_DIR"
-echo "   Configuration: $CONFIG_DIR"
-echo "   Logs: $LOG_DIR"
-echo "   User: $GGNET_USER"
-echo
-echo -e "${BLUE}🌐 Access Points:${NC}"
-echo "   Web Interface: http://$SERVER_IP"
-echo "   API Docs: http://$SERVER_IP/docs"
-echo "   API Status: http://$SERVER_IP/api/status"
-echo
-echo -e "${BLUE}🔧 Service Commands:${NC}"
-echo "   Status: systemctl status ggnet-backend"
-echo "   Logs: journalctl -u ggnet-backend -f"
-echo "   Restart: systemctl restart ggnet-backend"
-echo
-echo -e "${BLUE}📖 Next Steps:${NC}"
-echo "   1. Access web interface at http://$SERVER_IP"
-echo "   2. Create storage array: sudo ./storage/raid/create_raid10.sh"
-echo "   3. Generate PXE configs: python pxe/service.py sync"
-echo "   4. Configure DHCP: cp pxe/dhcp/generated-dhcp.conf /etc/dhcp/dhcpd.conf"
-echo "   5. Setup NFS: cp pxe/nfs/exports.template /etc/exports"
-echo "   6. Register client machines via web interface"
-echo
-echo -e "${BLUE}📚 Documentation:${NC}"
-echo "   Installation: $INSTALL_DIR/docs/"
-echo "   Backend: $INSTALL_DIR/backend/README.md"
-echo "   PXE Boot: $INSTALL_DIR/../pxe/README.md"
-echo "   Storage: $INSTALL_DIR/../storage/STORAGE_COMPLETE.md"
-echo
-echo -e "${BLUE}🔐 Security Notes:${NC}"
-echo "   - Default SQLite database: $INSTALL_DIR/backend/src/ggnet.db"
-echo "   - Config file: $CONFIG_DIR/backend.conf (if using PostgreSQL)"
-echo "   - Change default passwords before production use"
-echo
-echo -e "${BLUE}🐛 Troubleshooting:${NC}"
-echo "   - Backend logs: journalctl -u ggnet-backend -f"
-echo "   - Nginx logs: tail -f /var/log/nginx/error.log"
-echo "   - System check: ./scripts/check_system.sh"
-echo
-echo -e "${GREEN}Installation complete! 🎉${NC}"
-echo
-
-exit 0
-
-
+echo ""
+echo -e "${GREEN}✅ ggNet has been successfully installed!${NC}"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "📊 System Status:"
+echo "  • Backend:  $(systemctl is-active ggnet-backend)"
+echo "  • Nginx:    $(systemctl is-active nginx)"
+echo "  • Database: $(systemctl is-active postgresql)"
+echo ""
+echo "🌐 Access ggNet:"
+echo "  • Web UI:     http://$SERVER_IP"
+echo "  • Dashboard:  http://$SERVER_IP/dashboard"
+echo "  • API:        http://$SERVER_IP/api/v1/"
+echo ""
+echo "🔧 Management Commands:"
+echo "  • View logs:       sudo journalctl -u ggnet-backend -f"
+echo "  • Restart backend: sudo systemctl restart ggnet-backend"
+echo "  • Check status:    sudo systemctl status ggnet-backend"
+echo ""
+echo "📁 Important Paths:"
+echo "  • Installation:    /opt/ggnet"
+echo "  • Backend:         /opt/ggnet/backend"
+echo "  • Frontend:        /opt/ggnet/frontend/dist"
+echo "  • Database:        PostgreSQL (ggnet database)"
+echo "  • Logs:            /var/log/ggnet"
+echo "  • Config:          /etc/ggnet"
+echo ""
+echo "🗄️  Next Steps - ZFS Storage:"
+echo ""
+echo "  1. List available drives:"
+echo "     lsblk"
+echo ""
+echo "  2. Create ZFS pool (example with 4 drives):"
+echo "     sudo zpool create pool0 \\"
+echo "       mirror /dev/sdb /dev/sdc \\"
+echo "       mirror /dev/sdd /dev/sde"
+echo ""
+echo "  3. Create ggNet filesystems:"
+echo "     sudo zfs create pool0/ggnet"
+echo "     sudo zfs create pool0/ggnet/images"
+echo "     sudo zfs create pool0/ggnet/snapshots"
+echo "     sudo zfs create pool0/ggnet/writebacks"
+echo ""
+echo "  4. Set ownership:"
+echo "     sudo chown -R ggnet:ggnet /pool0/ggnet"
+echo ""
+echo "  5. Verify in UI:"
+echo "     http://$SERVER_IP/storage"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo -e "${GREEN}🎉 Installation Complete! Open http://$SERVER_IP in your browser!${NC}"
+echo ""

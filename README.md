@@ -11,15 +11,15 @@ Similar to ggRock, ggNet provides centralized management of system images, snaps
 ### One-Line Installation
 
 ```bash
-wget -O - https://raw.githubusercontent.com/itcaffenet-Ljubinje/GGnet1/main/install.sh | sudo bash
+wget -O - https://raw.githubusercontent.com/itcaffenet-Ljubinje/GGnet1/main/scripts/install.sh | sudo bash
 ```
 
 Or clone and install:
 
-   ```bash
+```bash
 git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git
-   cd GGnet1
-sudo bash install.sh
+cd GGnet1
+sudo bash scripts/install.sh
 ```
 
 **Installation time:** ~10-15 minutes
