@@ -288,19 +288,26 @@ async def get_machine(
 @router.post("/machines/{machine_id}/power")
 async def power_operation(
     machine_id: int,
-    request: dict,
+    request: dict = None,
+    action: str = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Power operation on machine
 
-    Actions: power_on, power_off, reboot
+    Actions: power_on, power_off, reboot, start, stop
+
+    Accepts action via query parameter OR JSON body.
 
     TODO: Implement actual Wake-on-LAN for start
     TODO: Implement SSH/agent for stop/reboot
     """
-    # Extract operation from request body
-    action = request.get("operation", request.get("action", ""))
+    # Extract operation from query param or request body
+    if request:
+        action = request.get("operation", request.get("action", action or ""))
+    
+    if not action:
+        raise HTTPException(status_code=422, detail="action or operation required")
     
     result = await db.execute(
         select(Machine).where(Machine.id == machine_id)
@@ -375,6 +382,37 @@ async def apply_writeback(
     }
 
 
+@router.post("/machines/{machine_id}/writeback")
+async def configure_writeback(
+    machine_id: int,
+    config: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Configure writeback settings for machine (JSON body)
+
+    Accepts: {"keep_writeback": true/false}
+    """
+    result = await db.execute(
+        select(Machine).where(Machine.id == machine_id)
+    )
+    machine = result.scalar_one_or_none()
+
+    if not machine:
+        raise HTTPException(status_code=404, detail="Machine not found")
+
+    keep = config.get("keep_writeback", machine.keep_writeback)
+    machine.keep_writeback = keep
+    await db.commit()
+
+    return {
+        "success": True,
+        "machine_id": machine_id,
+        "keep_writeback": keep,
+        "message": f"Keep writeback {'enabled' if keep else 'disabled'}"
+    }
+
+
 @router.post("/machines/{machine_id}/keep_writeback")
 async def set_keep_writeback(
     machine_id: int,
@@ -382,7 +420,7 @@ async def set_keep_writeback(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Enable/disable keep writeback for machine
+    Enable/disable keep writeback for machine (query parameter)
 
     When enabled, writeback is preserved across reboots.
     When disabled, writeback is discarded on shutdown.
