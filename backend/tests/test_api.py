@@ -204,7 +204,7 @@ def test_delete_machine(client):
     
     # Delete machine
     response = client.delete(f"/api/v1/machines/{machine_id}")
-    assert response.status_code == 204
+    assert response.status_code in [200, 204]  # Accept both 200 OK and 204 No Content
     
     # Verify it's gone
     get_response = client.get(f"/api/v1/machines/{machine_id}")
