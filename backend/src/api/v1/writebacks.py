@@ -7,8 +7,10 @@ Manage per-client write storage and differential changes.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
+from datetime import datetime
 
 from db.base import get_db
 from db.models import Writeback, WritebackStatus
@@ -17,17 +19,29 @@ router = APIRouter(prefix="/writebacks", tags=["writebacks"])
 
 
 # Schemas
+class WritebackCreate(BaseModel):
+    attached_client_id: str
+    base_image_id: str
+    size_of_changes: int = 0
+
+
 class WritebackResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    
     writeback_id: str
     attached_client_id: str
     base_image_id: str
     size_of_changes: int
     status: WritebackStatus
-    created_at: str
-    inactive_hours: int
-
-    class Config:
-        from_attributes = True
+    created_at: str | datetime
+    inactive_hours: int = 0
+    
+    @field_serializer('created_at')
+    def serialize_datetime(self, dt: datetime | str, _info):
+        """Convert datetime to ISO string"""
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+        return dt
 
 
 # Endpoints
@@ -56,6 +70,50 @@ async def list_writebacks(
         wb.inactive_hours = 0  # Placeholder
 
     return writebacks
+
+
+@router.post("/", response_model=WritebackResponse, status_code=201)
+async def create_writeback(
+    writeback_data: WritebackCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Create new writeback for a client"""
+    writeback = Writeback(
+        attached_client_id=writeback_data.attached_client_id,
+        base_image_id=writeback_data.base_image_id,
+        size_of_changes=writeback_data.size_of_changes,
+        status=WritebackStatus.ACTIVE,
+        ready_for_snapshot=False
+    )
+    
+    db.add(writeback)
+    try:
+        await db.commit()
+        await db.refresh(writeback)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Writeback already exists for this client")
+    
+    writeback.inactive_hours = 0  # Placeholder
+    return writeback
+
+
+@router.get("/{writeback_id}", response_model=WritebackResponse)
+async def get_writeback(
+    writeback_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get writeback by ID"""
+    result = await db.execute(
+        select(Writeback).where(Writeback.writeback_id == writeback_id)
+    )
+    writeback = result.scalar_one_or_none()
+    
+    if not writeback:
+        raise HTTPException(status_code=404, detail="Writeback not found")
+    
+    writeback.inactive_hours = 0  # Placeholder
+    return writeback
 
 
 @router.delete("/{writeback_id}")

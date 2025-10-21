@@ -22,9 +22,18 @@ def mock_db():
     
     # Make async methods actually awaitable
     db.commit = AsyncMock()
-    db.execute = AsyncMock()
     db.rollback = AsyncMock()
     db.close = AsyncMock()
+    
+    # Mock execute to return a mock result with scalars()
+    async def mock_execute(*args, **kwargs):
+        result = MagicMock()
+        result.scalar_one_or_none = MagicMock(return_value=None)
+        result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+        return result
+    
+    db.execute = AsyncMock(side_effect=mock_execute)
+    db.delete = MagicMock()  # Synchronous delete
     
     # Mock refresh to populate database-generated fields
     async def mock_refresh(obj):
@@ -48,10 +57,14 @@ def mock_db():
         # Snapshot fields
         if hasattr(obj, 'snapshot_id') and obj.snapshot_id is None:
             obj.snapshot_id = str(uuid.uuid4())
+        if hasattr(obj, 'date_created') and obj.date_created is None:
+            obj.date_created = datetime.now()
         
         # Writeback fields
         if hasattr(obj, 'writeback_id') and obj.writeback_id is None:
             obj.writeback_id = str(uuid.uuid4())
+        if hasattr(obj, 'created_at') and obj.created_at is None:
+            obj.created_at = datetime.now()
     
     db.refresh = AsyncMock(side_effect=mock_refresh)
     

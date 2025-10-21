@@ -149,6 +149,46 @@ async def delete_image(
     return {"message": "Image deleted successfully"}
 
 
+@router.put("/{image_id}", response_model=ImageResponse)
+async def update_image(
+    image_id: str,
+    update_data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update image details"""
+    result = await db.execute(
+        select(Image).where(Image.image_id == image_id)
+    )
+    image = result.scalar_one_or_none()
+    
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    # Update fields
+    for key, value in update_data.items():
+        if hasattr(image, key):
+            setattr(image, key, value)
+    
+    # Handle default flag - only one image can be default per type
+    if update_data.get('is_default'):
+        # Unset other defaults of same type
+        result = await db.execute(
+            select(Image).where(
+                Image.type == image.type,
+                Image.is_default == True,
+                Image.image_id != image_id
+            )
+        )
+        other_defaults = result.scalars().all()
+        for other in other_defaults:
+            other.is_default = False
+    
+    await db.commit()
+    await db.refresh(image)
+    
+    return image
+
+
 @router.post("/upload")
 async def upload_image(
     file: UploadFile = File(...),
