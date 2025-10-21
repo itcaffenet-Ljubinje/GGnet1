@@ -38,15 +38,23 @@ class SnapshotResponse(BaseModel):
     base_image_id: str
     size_bytes: int
     status: SnapshotStatus
-    date_created: str | datetime
+    date_created: str
     protected: bool
     
-    @field_serializer('date_created')
-    def serialize_datetime(self, dt: datetime | str, _info):
-        """Convert datetime to ISO string"""
-        if isinstance(dt, datetime):
-            return dt.isoformat()
-        return dt
+    @classmethod
+    def from_orm(cls, obj):
+        """Custom ORM converter to handle datetime"""
+        data = {
+            "snapshot_id": obj.snapshot_id,
+            "name": obj.name,
+            "source_writeback_id": obj.source_writeback_id,
+            "base_image_id": obj.base_image_id,
+            "size_bytes": obj.size_bytes,
+            "status": obj.status,
+            "date_created": obj.date_created.isoformat() if isinstance(obj.date_created, datetime) else obj.date_created,
+            "protected": obj.protected
+        }
+        return cls(**data)
 
 
 class ApplySnapshotRequest(BaseModel):

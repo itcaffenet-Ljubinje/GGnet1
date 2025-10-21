@@ -40,16 +40,26 @@ class ImageResponse(BaseModel):
     size_bytes: int
     status: str
     is_default: bool
-    creation_date: str | datetime
+    creation_date: str
     storage_path: str | None = None
     description: str | None = None
     
-    @field_serializer('creation_date')
-    def serialize_datetime(self, dt: datetime | str, _info):
-        """Convert datetime to ISO string"""
-        if isinstance(dt, datetime):
-            return dt.isoformat()
-        return dt
+    @classmethod
+    def from_orm(cls, obj):
+        """Custom ORM converter to handle datetime"""
+        data = {
+            "image_id": obj.image_id,
+            "name": obj.name,
+            "type": obj.type,
+            "version": obj.version,
+            "size_bytes": obj.size_bytes,
+            "status": obj.status,
+            "is_default": obj.is_default,
+            "creation_date": obj.creation_date.isoformat() if isinstance(obj.creation_date, datetime) else obj.creation_date,
+            "storage_path": obj.storage_path,
+            "description": obj.description
+        }
+        return cls(**data)
 
 
 # Endpoints
@@ -59,15 +69,21 @@ async def list_images(
     db: AsyncSession = Depends(get_db)
 ):
     """List all images, optionally filtered by type"""
-    query = select(Image)
+    try:
+        query = select(Image)
 
-    if type:
-        query = query.where(Image.type == type)
+        if type:
+            query = query.where(Image.type == type)
 
-    result = await db.execute(query.order_by(Image.creation_date.desc()))
-    images = result.scalars().all()
+        result = await db.execute(query.order_by(Image.creation_date.desc()))
+        images = result.scalars().all()
 
-    return images
+        return images
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logging.error(f"Error listing images: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing images: {str(e)}")
 
 
 @router.post("/", response_model=ImageResponse, status_code=201)
