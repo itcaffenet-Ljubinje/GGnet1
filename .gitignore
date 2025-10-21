@@ -63,3 +63,13 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+
+# Test coverage
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
+# Storage directories (created at runtime)
+backend/storage/
+backend/pxe/tftp/
