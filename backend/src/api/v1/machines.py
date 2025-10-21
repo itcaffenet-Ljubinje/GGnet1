@@ -288,17 +288,20 @@ async def get_machine(
 @router.post("/machines/{machine_id}/power")
 async def power_operation(
     machine_id: int,
-    action: str,
+    request: dict,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Power operation on machine
 
-    Actions: start, stop, reboot
+    Actions: power_on, power_off, reboot
 
     TODO: Implement actual Wake-on-LAN for start
     TODO: Implement SSH/agent for stop/reboot
     """
+    # Extract operation from request body
+    action = request.get("operation", request.get("action", ""))
+    
     result = await db.execute(
         select(Machine).where(Machine.id == machine_id)
     )
@@ -307,10 +310,11 @@ async def power_operation(
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
 
-    if action == "start":
+    # Map operation names to status
+    if action in ["start", "power_on"]:
         machine.status = "booting"
         # TODO: Send Wake-on-LAN magic packet to machine.mac_address
-    elif action == "stop":
+    elif action in ["stop", "power_off"]:
         machine.status = "offline"
         # TODO: Send shutdown signal via SSH or agent
     elif action == "reboot":
