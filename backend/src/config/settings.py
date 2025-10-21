@@ -28,10 +28,12 @@ class Settings:
         "http://localhost:3000",  # Alternative frontend
     ]
 
-    # Database - SQLite for development
+    # Database - PostgreSQL for production, SQLite for development
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "sqlite+aiosqlite:///./ggnet.db"
+        "postgresql+asyncpg://ggnet:ggnet_secure_password_change_me@localhost/ggnet" 
+        if os.path.exists("/etc/ggnet/backend.conf") 
+        else "sqlite+aiosqlite:///./ggnet.db"
     )
 
     # Storage paths

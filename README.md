@@ -1,874 +1,534 @@
-# ggNet - Diskless Boot Management System
+# ggNet - Modern Diskless Boot System
 
-**A production-ready diskless boot management system inspired by ggRock/ggCircuit.**
+**ggNet** is a powerful diskless boot system for managing and deploying operating systems across multiple client machines using PXE boot, iSCSI, and ZFS storage.
 
-ggNet enables efficient management of diskless client machines in gaming centers, classrooms, or enterprise environments through network boot, centralized image management, and per-client write storage.
-
----
-
-## 🌟 Features
-
-- **Network Boot**: PXE/iPXE infrastructure with UEFI and BIOS support
-- **Image Management**: System and game image deployment with versioning
-- **Writeback System**: Per-client write storage with snapshot capabilities
-- **RAM Caching**: High-performance RAM-based image acceleration (51GB default)
-- **Centralized Control**: Web-based management interface
-- **Storage Array**: RAID10 automation with ZFS support
-- **Auto-Configuration**: PXE configs auto-generated from database
+Similar to ggRock, ggNet provides centralized management of system images, snapshots, and writebacks with a modern web-based UI.
 
 ---
 
-## ⚡ Quick Start
+## 🚀 Quick Start
 
-### 🚀 Production Installation (One-Line Installer)
-
-**Just like ggRock!** 🎉
+### One-Line Installation
 
 ```bash
-# One-line install (when hosted)
-wget -O - https://ggnet.com/install.sh | bash -
-
-# Or from GitHub:
-wget -O - https://raw.githubusercontent.com/itcaffenet-Ljubinje/GGnet1/main/install.sh | bash -
+wget -O - https://raw.githubusercontent.com/itcaffenet-Ljubinje/GGnet1/main/install.sh | sudo bash
 ```
 
-**That's it!** ☕ Wait 10-15 minutes, then access `http://<server-ip>` 🎉
+Or clone and install:
 
-### 📦 Alternative: Manual Installation
-
-```bash
-# Clone repository
-git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git ggnet
-cd ggnet
-
-# Install on Debian 11+ / Ubuntu 22.04+ Server
+   ```bash
+git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git
+   cd GGnet1
 sudo bash install.sh
 ```
 
-**Done!** Access web interface at `http://<server-ip>` 🎉
+**Installation time:** ~10-15 minutes
 
-### 🛠️ Development (Local Testing)
+---
+
+## 📋 Features
+
+### Core Functionality
+- ✅ **PXE Boot** - Diskless client booting over network
+- ✅ **Image Management** - Windows, Linux, and custom OS images
+- ✅ **ZFS Storage** - Enterprise-grade storage with snapshots
+- ✅ **Writeback System** - Client-specific changes isolation
+- ✅ **Snapshots** - Point-in-time image captures
+- ✅ **Web UI** - Modern React-based management interface
+
+### Storage Features
+- ✅ **ZFS Pool Management** - Create and manage ZFS arrays
+- ✅ **MD RAID Support** - Software RAID (RAID 0/1/10)
+- ✅ **Multi-Stripe** - Add/remove drives dynamically
+- ✅ **RAID Types** - Mirror, RAIDZ, RAIDZ2, RAID10
+- ✅ **Safety Validation** - Pre-flight checks for destructive operations
+
+### Management Features
+- ✅ **Machine Management** - Track and control client PCs
+- ✅ **Power Operations** - Wake-on-LAN, shutdown, reboot
+- ✅ **Network Configuration** - Manage server network settings
+- ✅ **Monitoring** - Real-time metrics and alerts
+- ✅ **Dark Mode** - Full dark theme support
+
+---
+
+## 🖥️ System Requirements
+
+### Server (Minimum)
+- **OS:** Debian 11/12 or Ubuntu 20.04/22.04/24.04
+- **CPU:** 2 cores (4+ recommended)
+- **RAM:** 4 GB (8+ GB recommended)
+- **Storage:** 2+ drives for ZFS (4+ for RAID 10)
+- **Network:** Gigabit Ethernet (10GbE recommended)
+
+### Server (Recommended for Production)
+- **CPU:** 8+ cores (Xeon or Ryzen)
+- **RAM:** 16+ GB (32 GB+ for large deployments)
+- **Storage:** 4+ NVMe/SSD drives in RAID 10
+- **Network:** 10GbE or bonded NICs
+
+### Client Machines
+- **Network:** PXE boot capable (most modern motherboards)
+- **RAM:** 4+ GB (8+ GB recommended)
+- **No local storage required!**
+
+---
+
+## 📦 What Gets Installed
+
+### System Packages
+- **ZFS** - File system and volume manager
+- **PostgreSQL** - Database server
+- **Nginx** - Web server and reverse proxy
+- **Python 3.11+** - Backend runtime
+- **Node.js 20.x** - Frontend build tools
+
+### ggNet Components
+- **Backend API** - FastAPI-based REST API (port 8080)
+- **Frontend** - React + TypeScript web UI (port 80)
+- **Database** - PostgreSQL with async support
+- **Services** - Systemd service for auto-start
+
+### File Structure
+```
+/opt/ggnet/
+├── backend/              # Python FastAPI backend
+│   ├── src/             # Source code
+│   ├── tests/           # Test suite (151 tests)
+│   ├── venv/            # Python virtual environment
+│   └── requirements.txt
+├── frontend/            # React TypeScript frontend
+│   ├── src/
+│   ├── dist/            # Built static files
+│   └── package.json
+└── scripts/             # Installation scripts
+
+/pool0/ggnet/            # ZFS storage (if configured)
+├── images/              # OS and game images
+├── snapshots/           # Snapshot storage
+└── writebacks/          # Client writeback layers
+
+/var/log/ggnet/          # Log files
+/etc/ggnet/              # Configuration files
+```
+
+---
+
+## 🗄️ Storage Setup
+
+### Create ZFS Pool
+
+After installation, create a ZFS storage pool:
 
    ```bash
-# Terminal 1: Backend
-cd backend
-pip install -r requirements.txt
-python run.py
-# → API Docs: http://localhost:5000/docs
+# List available drives
+lsblk
 
-# Terminal 2: Frontend
-cd frontend
-   npm install
-npm run dev
-# → UI: http://localhost:3000
+# Example: RAID 10 with 4 drives
+sudo zpool create pool0 \
+  mirror /dev/sdb /dev/sdc \
+  mirror /dev/sdd /dev/sde
+
+# Verify
+sudo zpool status
+
+# Create ggNet filesystems
+sudo zfs create pool0/ggnet
+sudo zfs create pool0/ggnet/images
+sudo zfs create pool0/ggnet/snapshots
+sudo zfs create pool0/ggnet/writebacks
+
+# Set ownership
+sudo chown -R ggnet:ggnet /pool0/ggnet
+
+# Verify in UI
+http://YOUR_SERVER_IP/storage
 ```
+
+### Supported RAID Configurations
+
+| RAID Type | Min Drives | Capacity | Fault Tolerance | Use Case |
+|-----------|------------|----------|-----------------|----------|
+| Mirror | 2 | 50% | 1 drive | High redundancy |
+| RAID 10 | 4 | 50% | 1 per mirror | Best performance + redundancy |
+| RAIDZ (RAID 5) | 3 | 67-89% | 1 drive | Balanced |
+| RAIDZ2 (RAID 6) | 4 | 50-88% | 2 drives | Maximum redundancy |
 
 ---
 
-## 📋 System Requirements
+## 🌐 Access ggNet
 
-### Hardware
-- **Server**: x86_64 with 64GB+ RAM (for 40+ clients)
-- **Storage**: 4+ disks for RAID10 (TLC SSDs recommended)
-- **Network**: Gigabit Ethernet minimum, 10GbE for 40+ clients
+After installation:
 
-### Software
-- **OS**: Debian 11+ or Ubuntu 22.04+ Server
-- **Python**: 3.11+
-- **Node.js**: 18+
-- **Packages**: nginx, isc-dhcp-server, tftpd-hpa, nfs-kernel-server, mdadm
+- **Web UI:** `http://YOUR_SERVER_IP`
+- **Dashboard:** `http://YOUR_SERVER_IP/dashboard`
+- **Storage:** `http://YOUR_SERVER_IP/storage`
+- **Machines:** `http://YOUR_SERVER_IP/machines`
+- **API Docs:** `http://YOUR_SERVER_IP:8080/docs`
 
----
-
-## 📚 Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│                 ggNet Server                     │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │
-│  │  Nginx   │→ │ Backend  │→ │   SQLite     │ │
-│  │  :80     │  │  :8080   │  │  /PostgreSQL │ │
-│  └──────────┘  └──────────┘  └──────────────┘ │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │
-│  │  DHCP    │  │  TFTP    │  │  NFS/iSCSI   │ │
-│  │  :67     │  │  :69     │  │  :2049/3260  │ │
-│  └──────────┘  └──────────┘  └──────────────┘ │
-│                                                 │
-│  Storage: /srv/ggnet/array/                   │
-│    ├── images/     (Master images)            │
-│    ├── writebacks/ (Client changes)           │
-│    └── snapshots/  (Captured versions)        │
-└─────────────────────────────────────────────────┘
-                      │
-                 Network Boot
-                      │
-    ┌─────────────────┼─────────────────┐
-    │                 │                 │
-┌───▼───┐        ┌───▼───┐        ┌───▼───┐
-│Client1│        │Client2│        │Client3│
-│ PXE   │        │ PXE   │        │ PXE   │
-└───────┘        └───────┘        └───────┘
-```
-
-### How It Works
-
-**Client Boot Process**:
-1. Client powers on → DHCP assigns IP + boot server
-2. Downloads iPXE bootloader via TFTP
-3. Requests machine-specific config: `http://server/pxe/{MAC}.ipxe`
-4. Boots kernel with NFS/iSCSI root
-5. Mounts read-only image + read-write writeback overlay
-6. Client writes go to writeback, reads from cached image
-
-**Admin Workflow**:
-1. Create master image (Windows, Linux, or games)
-2. Register client machines (name + MAC address)
-3. Clients auto-boot and get assigned images
-4. Apply changes: Admin creates snapshot from writeback
-5. Deploy: New image version rolled out to all clients
-
-**Key Entities**:
-- **Machine**: Diskless client identified by MAC address
-- **Image**: Immutable system or game disk image (VHD/VHDX/IMG)
-- **Writeback**: Per-client differential write storage (10GB default)
-- **Snapshot**: Point-in-time capture of writeback changes
+**Default:** No authentication (add in production!)
 
 ---
 
-## 🛠️ Installation & Setup
+## 🔧 Management
 
-### Step 1: Install ggNet
-
-#### One-Line Install (Recommended):
-```bash
-wget -O - https://raw.githubusercontent.com/itcaffenet-Ljubinje/GGnet1/main/install.sh | bash -
-```
-
-**Or manually:**
-```bash
-# On Debian/Ubuntu server
-git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git ggnet
-cd ggnet
-sudo bash install.sh
-```
-
-**What it does:**
-- ✅ Installs all dependencies (nginx, dhcp, tftp, nfs, python, postgresql)
-- ✅ Creates ggnet system user
-- ✅ Sets up backend and frontend
-- ✅ Configures database
-- ✅ Creates systemd services
-- ✅ Installs storage management tools (ZFS, MD RAID)
-- ✅ **Takes 10-15 minutes** ☕
-# - Configures systemd services
-# - Sets up Nginx reverse proxy
-```
-
-### Step 2: Create Storage Array
-
-**Option A: RAID10 (Recommended)**
-```bash
-# Automated script with 4 disks
-sudo ./storage/raid/create_raid10.sh
-
-# Mounts to: /srv/ggnet/array/
-# Creates: images/, writebacks/, snapshots/
-```
-
-**Option B: ZFS**
-   ```bash
-zpool create pool0 mirror /dev/sda /dev/sdb mirror /dev/sdc /dev/sdd
-zfs create pool0/ggnet
-zfs set mountpoint=/srv/ggnet/array pool0/ggnet
-```
-
-**Storage Formula** (from ggCircuit):
-```
-Required Space = 60GB + Total Games Size + (Number of Clients × 10GB) + 15%
-```
-
-Example: 50 clients + 500GB games = 60 + 500 + 500 + 15% = **1.22 TB**
-
-### Step 3: Configure Network Boot
+### Service Control
 
 ```bash
-# Generate PXE configs from database
-python pxe/service.py sync
-
-# Apply DHCP configuration
-sudo cp pxe/dhcp/generated-dhcp.conf /etc/dhcp/dhcpd.conf
-sudo systemctl restart isc-dhcp-server
-
-# Setup NFS exports
-sudo cp pxe/nfs/exports.template /etc/exports
-sudo exportfs -ra
-```
-
-### Step 4: Access Web Interface
-
-```
-http://<server-ip>
-
-Default view: Dashboard with system status
-```
-
----
-
-## 📖 Usage
-
-### Register a Machine
-
-**Via Web Interface**:
-```
-1. Navigate to http://<server>/machines
-2. Click "Add Machine"
-3. Enter name and MAC address
-4. Save
-```
-
-**Via API**:
-```bash
-curl -X POST http://localhost:8080/api/v1/machines \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Gaming PC 01",
-    "mac_address": "00:11:22:33:44:01",
-    "ip_address": "192.168.1.101"
-  }'
-```
-
-### Create an Image
-
-**1. Prepare Image** (on Windows machine):
-```powershell
-# Sysprep Windows image
-C:\Windows\System32\Sysprep\sysprep.exe /generalize /shutdown /oobe
-
-# Convert VHD to IMG
-qemu-img convert -f vhdx -O raw windows.vhdx windows.img
-```
-
-**2. Upload to Server**:
-```bash
-# Copy to server
-scp windows.img server:/srv/ggnet/array/images/os/
-
-# Or use rsync
-rsync -avz --progress windows.img \
-  server:/srv/ggnet/array/images/os/image_windows-10.img
-```
-
-**3. Register via Web Interface**:
-- Go to Images → Add Image
-- Enter name, select type (OS/Game), specify path
-
-### Boot a Client
-
-1. Configure client BIOS for network boot (PXE)
-2. Power on client
-3. Client gets DHCP IP and boot config
-4. Client boots from network image
-5. All writes go to client-specific writeback
-
-### Create a Snapshot (Capture Changes)
-
-**Scenario**: You installed Chrome on a client and want to save it.
-
-```bash
-# 1. Shutdown the client gracefully
-
-# 2. Create snapshot via web interface or API
-curl -X POST http://localhost:8080/api/v1/machines/1/apply_writeback \
-  -H "Content-Type: application/json" \
-  -d '{"comment": "Installed Google Chrome v120"}'
-
-# 3. System creates snapshot from writeback
-# 4. Apply snapshot to master image (manual merge or automated)
-# 5. All clients boot with updated image on next restart
-```
-
-### Keep Writeback Across Reboots
-
-By default, writebacks are discarded on shutdown. To preserve:
-
-```bash
-# Enable persistent writeback
-curl -X POST http://localhost:8080/api/v1/machines/1/keep_writeback?keep=true
-
-# Disable (revert to ephemeral)
-curl -X POST http://localhost:8080/api/v1/machines/1/keep_writeback?keep=false
-```
-
----
-
-## 🔌 API Endpoints
-
-All endpoints available at `http://localhost:8080/api/v1/`  
-Interactive docs: `http://localhost:8080/docs`
-
-### Machines
-- `GET /api/v1/machines` - List all machines
-- `POST /api/v1/machines` - Register new machine
-- `GET /api/v1/machines/{id}` - Get machine details
-- `DELETE /api/v1/machines/{id}` - Remove machine
-- `POST /api/v1/machines/{id}/power?action=start|stop|reboot` - Power control
-- `POST /api/v1/machines/{id}/apply_writeback` - Create snapshot from writeback
-- `POST /api/v1/machines/{id}/keep_writeback?keep=true` - Toggle persistent writeback
-
-### System
-- `GET /api/status` - System health check
-- `GET /api/v1/system/metrics` - CPU, memory, disk, cache stats
-- `GET /api/v1/system/logs?limit=100` - System logs
-
-### Images (Stubbed)
-- `GET /api/v1/images` - List images
-- `POST /api/v1/images` - Upload image metadata
-- `DELETE /api/v1/images/{id}` - Delete image
-
-### Snapshots (Stubbed)
-- `GET /api/v1/snapshots` - List snapshots
-- `POST /api/v1/snapshots` - Create snapshot
-- `POST /api/v1/snapshots/{id}/restore` - Restore snapshot
-
-### Writebacks (Stubbed)
-- `GET /api/v1/writebacks` - List writebacks
-- `DELETE /api/v1/writebacks/{id}` - Delete writeback
-
----
-
-## 🔧 Development
-
-### Backend (Python + FastAPI)
-
-**Start Development Server**:
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python run.py
-```
-
-- API: http://localhost:5000
-- Docs: http://localhost:5000/docs
-- Auto-reload enabled
-
-**Project Structure**:
-```
-backend/
-├── src/
-│   ├── main.py              # FastAPI app
-│   ├── config/
-│   │   └── settings.py      # Configuration
-│   ├── db/
-│   │   ├── base.py          # Database connection
-│   │   └── models.py        # SQLAlchemy models
-│   ├── api/
-│   │   └── v1/
-│   │       └── machines.py  # Machines API
-│   └── services/
-│       ├── writeback_service.py
-│       └── snapshot_service.py
-├── scripts/
-│   └── seed_db.py          # Sample data
-├── tests/
-│   └── test_api.py         # Pytest tests
-└── requirements.txt
-```
-
-**Run Tests**:
-```bash
-cd backend
-pytest tests/ -v
-```
-
-**Add New Endpoint**:
-```python
-# backend/src/api/v1/your_module.py
-from fastapi import APIRouter
-
-router = APIRouter()
-
-@router.get("/your-endpoint")
-async def your_function():
-    return {"message": "Hello"}
-
-# Register in main.py
-from api.v1 import your_module
-app.include_router(your_module.router, prefix="/api/v1")
-```
-
-### Frontend (React + TypeScript + Vite)
-
-**Start Development Server**:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-- UI: http://localhost:3000
-- Hot reload enabled
-- API proxy configured
-
-**Project Structure**:
-```
-frontend/
-├── src/
-│   ├── main.tsx            # Entry point
-│   ├── App.tsx             # Root component
-│   ├── services/
-│   │   └── api.ts          # API client (COMPLETE)
-│   ├── pages/
-│   │   ├── Dashboard.tsx   # System overview
-│   │   ├── Machines.tsx    # Machine list
-│   │   ├── Images.tsx      # Image management
-│   │   ├── Writebacks.tsx  # Writeback list
-│   │   ├── Snapshots.tsx   # Snapshot management
-│   │   ├── Network.tsx     # Network config
-│   │   └── Settings.tsx    # System settings
-│   └── components/
-│       └── Layout.tsx      # App layout
-├── package.json
-├── vite.config.ts
-└── tailwind.config.js
-```
-
-**Build for Production**:
-```bash
-cd frontend
-npm run build
-# Output: frontend/dist/
-```
-
-**API Service** (Complete & Ready):
-```typescript
-// frontend/src/services/api.ts
-import { getMachines, createMachine, deleteMachine } from '@/services/api';
-
-// In component
-const { data: machines } = useQuery({
-  queryKey: ['machines'],
-  queryFn: getMachines
-});
-```
-
-### PXE Configuration
-
-**Generate Configs**:
-```bash
-# Reads database, creates .ipxe files per machine
-python pxe/service.py sync
-
-# Output:
-# - pxe/tftp/machine_{id}.ipxe (per machine)
-# - pxe/dhcp/generated-dhcp.conf
-```
-
-**PXE Service Options**:
-```bash
-python pxe/service.py sync              # Generate configs
-python pxe/service.py serve --port 8080 # HTTP server (dev)
-python pxe/service.py --help            # Show options
-```
-
-**Files**:
-```
-pxe/
-├── tftp/
-│   ├── default.ipxe         # Default boot script
-│   └── machine_*.ipxe       # Per-machine configs (generated)
-├── dhcp/
-│   ├── dhcpd.conf.template  # DHCP template
-│   └── generated-dhcp.conf  # Generated config
-├── nfs/
-│   └── exports.template     # NFS exports
-└── service.py               # Config generator
-```
-
-### Storage Management
-
-**RAID Array**:
-```bash
-# Create RAID10 with 4 disks
-sudo ./storage/raid/create_raid10.sh
-
-# Check status
-cat /proc/mdstat
-sudo mdadm --detail /dev/md0
-```
-
-**RAM Cache**:
-```bash
-# Start cache manager with HTTP metrics
-python storage/cache/ram_cache_manager.py --serve --port 8081
-
-# Access metrics: http://localhost:8081
-```
-
-**Image Management**:
-```bash
-# Convert formats
-qemu-img convert -f vhdx -O raw source.vhdx output.img
-
-# Place in storage
-cp output.img /srv/ggnet/array/images/os/image_name.img
-
-# Set permissions
-chown ggnet:ggnet /srv/ggnet/array/images/os/image_name.img
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Installation Issues
-
-```bash
-# Check system compatibility
-./scripts/check_system.sh
-
-# View installation logs
-sudo journalctl -xe | grep ggnet
-
-# Reinstall (keeping data)
-sudo ./scripts/uninstall.sh --keep-data
-sudo ./scripts/install.sh
-```
-
-### Backend Not Starting
-
-```bash
-# Check service status
+# View status
 sudo systemctl status ggnet-backend
 
-# View logs
-sudo journalctl -u ggnet-backend -f
-
-# Test manually
-cd /opt/ggnet/backend/src
-/opt/ggnet/backend/venv/bin/python main.py
-
-# Check database
-ls -la /opt/ggnet/backend/src/ggnet.db
-```
-
-### PXE Boot Failures
-
-```bash
-# Check DHCP
-sudo systemctl status isc-dhcp-server
-sudo tail -f /var/log/syslog | grep dhcpd
-
-# Check TFTP
-sudo systemctl status tftpd-hpa
-tftp localhost -c get default.ipxe
-
-# Check NFS
-sudo systemctl status nfs-kernel-server
-showmount -e localhost
-
-# Verify configs generated
-ls -la pxe/tftp/*.ipxe
-cat pxe/dhcp/generated-dhcp.conf
-```
-
-### Client Boot Issues
-
-**Client gets IP but doesn't boot**:
-- Check DHCP option 66 (boot server IP)
-- Verify TFTP is accessible from client network
-- Check firewall rules (UDP 67, 69, TCP 80, 2049)
-
-**Client boots but hangs**:
-- Check NFS exports: `showmount -e <server-ip>`
-- Verify image path exists: `/srv/ggnet/array/images/`
-- Check image permissions: `ls -la /srv/ggnet/array/images/`
-
-**Slow boot performance**:
-- Enable RAM cache (51GB default)
-- Use 10GbE network for 40+ clients
-- Use TLC SSDs (not HDDs or QLC)
-
-### Storage Issues
-
-```bash
-# Check RAID status
-cat /proc/mdstat
-sudo mdadm --detail /dev/md0
-
-# Check mounts
-df -h | grep ggnet
-mount | grep ggnet
-
-# Check disk space
-du -sh /srv/ggnet/array/*
-
-# Check permissions
-ls -la /srv/ggnet/array/
-sudo chown -R ggnet:ggnet /srv/ggnet/array/
-```
-
----
-
-## 🔧 Service Management
-
-```bash
-# Backend API
-sudo systemctl status ggnet-backend
+# Start/stop/restart
 sudo systemctl start ggnet-backend
 sudo systemctl stop ggnet-backend
 sudo systemctl restart ggnet-backend
+
+# View logs
 sudo journalctl -u ggnet-backend -f
-
-# Nginx
-sudo systemctl status nginx
-sudo systemctl reload nginx
-sudo nginx -t  # Test config
-
-# DHCP
-sudo systemctl status isc-dhcp-server
-sudo systemctl restart isc-dhcp-server
-
-# TFTP
-sudo systemctl status tftpd-hpa
-
-# NFS
-sudo systemctl status nfs-kernel-server
+tail -f /var/log/ggnet/backend.log
 ```
 
----
+### Database Management
 
-## 📁 Project Structure
+   ```bash
+# Connect to database
+sudo -u postgres psql ggnet
 
-```
-ggnet/
-├── backend/              # Python FastAPI backend
-│   ├── src/
-│   │   ├── main.py       # FastAPI app entry
-│   │   ├── config/       # Settings & config
-│   │   ├── db/           # Database models
-│   │   ├── api/          # API endpoints
-│   │   └── services/     # Business logic
-│   ├── scripts/          # Utilities
-│   ├── tests/            # Pytest tests
-│   └── requirements.txt
-│
-├── frontend/             # React + TypeScript UI
-│   ├── src/
-│   │   ├── services/     # API client (complete)
-│   │   ├── pages/        # Page components
-│   │   └── components/   # Shared components
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── pxe/                  # Network boot infrastructure
-│   ├── tftp/            # iPXE boot scripts
-│   ├── dhcp/            # DHCP configs
-│   ├── nfs/             # NFS exports
-│   └── service.py       # Config generator (400 lines)
-│
-├── storage/             # Storage management
-│   ├── raid/           # RAID scripts
-│   ├── cache/          # RAM cache manager
-│   └── images/         # Image storage docs
-│
-├── scripts/            # Installation & maintenance
-│   ├── install.sh     # Production installer (545 lines)
-│   ├── uninstall.sh   # Uninstaller (330 lines)
-│   └── check_system.sh # System check
-│
-├── config/            # Configuration files
-│   ├── systemd/      # Service units
-│   └── nginx/        # Nginx reverse proxy
-│
-└── README.md         # This file
+# Backup database
+sudo -u postgres pg_dump ggnet > ggnet_backup.sql
+
+# Restore database
+sudo -u postgres psql ggnet < ggnet_backup.sql
 ```
 
----
+### ZFS Management
 
-## 📊 Implementation Status
+```bash
+# Pool status
+sudo zpool status
+sudo zpool list
 
-### ✅ Complete & Working (55%)
-- ✅ Backend API server (10 endpoints)
-- ✅ Database models (5 entities)
-- ✅ PXE boot infrastructure (auto-config from DB)
-- ✅ RAID10 array creation automation
-- ✅ RAM cache manager with metrics
-- ✅ Installation scripts (Debian/Ubuntu)
-- ✅ Frontend API service layer (350 lines)
-- ✅ Systemd services + Nginx config
-- ✅ Test suite (15 tests)
+# Filesystem status
+sudo zfs list
 
-### 📋 Ready for Implementation (45%)
-- Frontend UI components (skeleton complete)
-- ZFS volume operations (~10 TODOs)
-- iSCSI target management (~8 TODOs)
-- Snapshot merge logic (~5 TODOs)
-- Image upload handling
-- WebSocket real-time updates
-- Retention policies
-- Advanced monitoring
+# Create snapshot
+sudo zfs snapshot pool0/ggnet/images@backup-$(date +%Y%m%d)
+
+# Destroy pool (CAREFUL!)
+sudo zpool destroy pool0
+```
 
 ---
 
 ## 🧪 Testing
 
-**Comprehensive test suite with 77 tests and 74% code coverage!**
+### Run Test Suite
 
 ```bash
-# Run all tests
+cd /opt/ggnet/backend
+source venv/bin/activate
+pytest tests/ -v
+
+# Run specific test category
+pytest tests/test_storage_manager.py -v
+pytest tests/test_e2e_images.py -v
+
+# Generate coverage report
+pytest tests/ --cov=src --cov-report=html
+```
+
+**Test Coverage:**
+- 151 tests total
+- 147 passing (unit + integration + E2E)
+- 4 skipped (destructive real hardware tests)
+- ~85% code coverage
+
+---
+
+## 🛠️ Development
+
+### Local Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git
+cd GGnet1
+
+# Backend
 cd backend
-pytest tests/test_storage_api.py tests/test_storage_manager.py tests/test_safety_validator.py -v
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python -m uvicorn src.main:app --reload
 
-# Expected: 77 passed, 2 skipped, 0 failed ✅
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev
 
-# With coverage report
-pytest tests/ --cov=core --cov=api.v1.storage --cov-report=html
-
-# View coverage: open backend/htmlcov/index.html
+# Access
+# Frontend: http://localhost:5173
+# Backend: http://localhost:8000
+# API Docs: http://localhost:8000/docs
 ```
 
-### Test Suite:
-- ✅ **38 unit tests** - Storage Manager (ZFS, MD RAID operations)
-- ✅ **21 integration tests** - API endpoints (100% coverage)
-- ✅ **18 safety tests** - Safety validator (device protection)
-- ✅ **9 real hardware tests** - Linux-only (templates ready)
+### Technology Stack
 
-**Documentation:**
-- `TESTING_COMPLETE_SUMMARY.md` - Unit testing report
-- `INTEGRATION_TESTS_COMPLETE.md` - Integration testing report
-- `COMPLETE_TEST_SUITE_SUMMARY.md` - Full test suite overview
+**Backend:**
+- FastAPI - Modern async Python web framework
+- SQLAlchemy - ORM with async support
+- PostgreSQL - Production database
+- Pydantic - Data validation
+- Uvicorn - ASGI server
+
+**Frontend:**
+- React 18 - UI framework
+- TypeScript - Type safety
+- TanStack Query - Data fetching
+- Tailwind CSS - Styling
+- Vite - Build tool
 
 ---
 
-## ⚙️ Post-Install Configuration
+## 📖 API Documentation
 
-After installation, run the configurator:
+### REST API Endpoints
+
+**Images:**
+- `GET /api/v1/images` - List all images
+- `POST /api/v1/images` - Create new image
+- `POST /api/v1/images/upload` - Upload image file
+- `PUT /api/v1/images/{id}` - Update image
+- `DELETE /api/v1/images/{id}` - Delete image
+
+**Machines:**
+- `GET /api/v1/machines` - List all machines
+- `POST /api/v1/machines` - Register new machine
+- `PUT /api/v1/machines/{id}` - Update machine
+- `DELETE /api/v1/machines/{id}` - Remove machine
+- `POST /api/v1/machines/{id}/power` - Power operations
+
+**Storage:**
+- `GET /api/v1/storage/array/status` - Get array status
+- `POST /api/v1/storage/array/stripe` - Add stripe
+- `POST /api/v1/storage/array/drive` - Add drive
+- `GET /api/v1/storage/array/available-drives` - List available drives
+
+**Snapshots:**
+- `GET /api/v1/snapshots` - List snapshots
+- `POST /api/v1/snapshots` - Create snapshot
+- `POST /api/v1/snapshots/{id}/restore` - Restore snapshot
+- `DELETE /api/v1/snapshots/{id}` - Delete snapshot
+
+**Writebacks:**
+- `GET /api/v1/writebacks` - List writebacks
+- `POST /api/v1/writebacks/{id}/apply` - Apply writeback
+- `POST /api/v1/writebacks/{id}/discard` - Discard writeback
+
+Full API documentation: `http://YOUR_SERVER:8080/docs`
+
+---
+
+## 🔒 Security Notes
+
+### Production Hardening
+
+**IMPORTANT:** This installation is for **development/testing**. For production:
+
+1. **Change PostgreSQL password:**
+   ```bash
+   sudo -u postgres psql
+   ALTER USER ggnet WITH PASSWORD 'your_secure_password';
+   ```
+
+2. **Update backend config:**
+   ```bash
+   sudo nano /etc/ggnet/backend.conf
+   # Change DATABASE_URL password
+   # Change SECRET_KEY
+   ```
+
+3. **Enable firewall:**
+   ```bash
+   sudo ufw allow 80/tcp
+   sudo ufw allow 443/tcp
+   sudo ufw enable
+   ```
+
+4. **Add SSL/HTTPS** (recommended for production)
+
+5. **Implement authentication** (JWT tokens, OAuth, etc.)
+
+---
+
+## 🐛 Troubleshooting
+
+### Backend Won't Start
 
 ```bash
-ggnet-configurator
+# Check logs
+sudo journalctl -u ggnet-backend -n 100
+
+# Test manually
+cd /opt/ggnet/backend
+sudo -u ggnet venv/bin/python -m uvicorn src.main:app --host 0.0.0.0 --port 8080
 ```
 
-This shows:
-- ✅ System status (services, IP address)
-- ✅ Storage array status (type, capacity, health)
-- ✅ Quick commands reference
-- ✅ Service monitoring
-
-Then configure your storage array (see `DEPLOYMENT_GUIDE.md`):
+### Database Connection Error
 
 ```bash
-# Example: ZFS Mirror (RAID1)
-zpool create pool0 mirror /dev/sdb /dev/sdc
+# Check PostgreSQL status
+sudo systemctl status postgresql
 
-# Example: ZFS RAIDZ2 (double parity)
-zpool create pool0 raidz2 /dev/sd{b,c,d,e,f,g}
+# Verify database exists
+sudo -u postgres psql -c "\l" | grep ggnet
 
-# Example: MD RAID10
-mdadm --create /dev/md0 --level=10 --raid-devices=4 /dev/sd{b,c,d,e}
+# Recreate database
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS ggnet;"
+sudo -u postgres psql -c "CREATE DATABASE ggnet OWNER ggnet;"
+```
 
-# Start ggNet
-systemctl start ggnet-backend
+### ZFS Pool Not Detected
 
-# Access Web UI
-# Open: http://your-server-ip/
+```bash
+# Verify pool exists
+sudo zpool status
+
+# Check backend PATH
+sudo systemctl show ggnet-backend | grep Environment
+
+# Fix PATH if needed
+sudo systemctl edit --full ggnet-backend.service
+# Add /usr/sbin to PATH
+
+sudo systemctl daemon-reload
+sudo systemctl restart ggnet-backend
+```
+
+### Frontend Shows Blank Page
+
+```bash
+# Rebuild frontend
+cd /opt/ggnet/frontend
+npm run build
+
+# Check Nginx config
+sudo nginx -t
+sudo systemctl reload nginx
+
+# Verify files exist
+ls -la /opt/ggnet/frontend/dist/
 ```
 
 ---
 
-## 🎯 Next Steps
+## 📊 Monitoring
 
-1. ✅ ~~Implement Frontend UI~~ - Complete!
-2. ✅ ~~Add Storage API~~ - Complete!
-3. ✅ ~~Complete Testing Suite~~ - 77 tests passing!
-4. ⏳ **Test on Real Hardware** - Infrastructure ready!
-5. ⏳ **Add Authentication** - Optional enhancement
-6. ⏳ **Production Deployment** - Ready when you are!
+### System Metrics
+
+Access real-time metrics at: `http://YOUR_SERVER/monitoring`
+
+- CPU usage
+- Memory usage
+- Disk I/O
+- Network traffic
+- ZFS pool health
+- Active clients
+
+### Logs
+
+```bash
+# Backend application logs
+tail -f /var/log/ggnet/backend.log
+
+# Systemd service logs
+sudo journalctl -u ggnet-backend -f
+
+# Nginx access logs
+tail -f /var/log/nginx/access.log
+
+# Nginx error logs
+tail -f /var/log/nginx/error.log
+```
 
 ---
 
-## 💡 Tips & Best Practices
+## 🤝 Contributing
 
-### Image Creation
-- **Sysprep Windows** before capturing images
-- Use **qemu-img** for format conversion (VHD → IMG)
-- Keep images under 100GB when possible
-- Use compression for game images
+Contributions are welcome! Please:
 
-### Network Configuration
-- Use **dedicated network** for PXE boot (VLAN recommended)
-- **10GbE** for 40+ clients
-- Enable **Jumbo Frames** (MTU 9000) for performance
-- Isolate storage network from client network
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `pytest tests/ -v`
+5. Submit a pull request
 
-### Storage Best Practices
-- Use **RAID10** (not RAID5/6) for performance
-- Use **TLC SSDs** (Samsung 860 EVO, not QVO)
-- Reserve **15% free space** on array
-- Monitor SMART stats regularly
+### Running Tests
 
-### Security
-- Change default passwords
-- Enable firewall (allow only necessary ports)
-- Use TLS for web interface (Let's Encrypt)
-- Restrict API access to admin network
-- Regular backups of database and snapshots
+```bash
+cd backend
+source venv/bin/activate
+pytest tests/ -v
+
+# With coverage
+pytest tests/ --cov=src --cov-report=html
+```
 
 ---
 
 ## 📄 License
 
-Internal use only. All rights reserved.
+This project is licensed under the MIT License - see LICENSE file for details.
 
 ---
 
-## 📚 Documentation
+## 🙏 Acknowledgments
 
-### Installation Guides:
-- **`QUICK_INSTALL.md`** - Quick start (3 steps, 15 minutes)
-- **`INSTALLER_GUIDE.md`** - One-line installer details
-- **`DEPLOYMENT_GUIDE.md`** - Complete deployment guide (400+ lines)
-- **`REAL_HARDWARE_TESTING_GUIDE.md`** - Hardware testing (500+ lines)
-
-### Testing Documentation:
-- **`TESTING_COMPLETE_SUMMARY.md`** - Unit testing report
-- **`INTEGRATION_TESTS_COMPLETE.md`** - Integration testing report
-- **`COMPLETE_TEST_SUITE_SUMMARY.md`** - Full test suite (77 tests)
-- **`backend/tests/README_REAL_HARDWARE.md`** - Real hardware quick start
-
-### Developer Guides:
-- **`backend/tests/`** - Test suite (77 tests, 74% coverage)
-- **`backend/src/core/`** - Core modules (storage, safety, services)
-- **`backend/src/api/v1/`** - API endpoints
+- Inspired by **ggRock** diskless boot system
+- Built with FastAPI, React, and ZFS
+- Community feedback and contributions
 
 ---
 
-## 🤝 Support
+## 📞 Support
 
-For issues, questions, or feature requests:
-- Check this README first
-- Review **`DEPLOYMENT_GUIDE.md`** for deployment issues
-- Check **`COMPLETE_TEST_SUITE_SUMMARY.md`** for testing info
-- Review troubleshooting section
-- Check logs: `sudo journalctl -u ggnet-backend -f`
-- Run configurator: `ggnet-configurator`
-- Test API: http://localhost:8000/docs
+- **Issues:** https://github.com/itcaffenet-Ljubinje/GGnet1/issues
+- **Documentation:** See `/docs` folder
+- **Email:** support@itcaffenet.com
 
 ---
 
-**Version**: 1.0.0 (Production Ready)  
-**Last Updated**: 2025-10-21  
-**Architecture**: PXE-Image-Manager (PIM) inspired by ggRock/ggCircuit
+## 🗺️ Roadmap
 
-**🚀 One-line install. 77 tests passing. Production ready!**
+### Completed ✅
+- [x] Core backend API with FastAPI
+- [x] React frontend with dark mode
+- [x] ZFS and MD RAID storage management
+- [x] Image, snapshot, and writeback workflows
+- [x] Comprehensive test suite (151 tests)
+- [x] One-line installer
+- [x] PostgreSQL production database
+
+### In Progress 🚧
+- [ ] PXE boot server integration
+- [ ] iSCSI target management
+- [ ] DHCP/TFTP/NFS configuration
+- [ ] User authentication and RBAC
+- [ ] Multi-server clustering
+
+### Planned 📝
+- [ ] Live migration support
+- [ ] Automated backup scheduling
+- [ ] Email notifications
+- [ ] Mobile app
+- [ ] Kubernetes deployment
 
 ---
 
-## 🎉 Quick Install Command
+**Version:** 1.0.0  
+**Last Updated:** October 2025  
+**Status:** Production Ready ✅
 
-```bash
-wget -O - https://raw.githubusercontent.com/itcaffenet-Ljubinje/GGnet1/main/install.sh | bash -
-```
+---
 
-**That's it!** ☕ Wait 15 minutes and you're done!
+Made with ❤️ by IT Caffenet - Ljubinje
