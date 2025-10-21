@@ -187,7 +187,7 @@ async def connect_vnc(
     }
 
 
-@router.delete("/machines/{machine_id}", status_code=204)
+@router.delete("/machines/{machine_id}")
 async def delete_machine(
     machine_id: int,
     db: AsyncSession = Depends(get_db)
@@ -209,7 +209,7 @@ async def delete_machine(
     await db.delete(machine)
     await db.commit()
 
-    return None
+    return {"success": True, "message": "Machine deleted successfully"}
 
 
 @router.put("/machines/{machine_id}", response_model=MachineResponse)
