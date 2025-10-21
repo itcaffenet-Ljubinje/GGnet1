@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 class TestMachineWorkflow:
     """Test complete machine workflow"""
     
-    @pytest.mark.skip(reason="Machine response schema mismatch - missing image_id in list response")
     def test_create_and_manage_machine(self, client: TestClient):
         """Test complete machine lifecycle"""
         
@@ -117,7 +116,6 @@ class TestMachineWorkflow:
         # Cleanup: Delete image
         client.delete(f"/api/v1/images/{image_id}")
     
-    @pytest.mark.skip(reason="MAC duplicate constraint - DB cleanup issue between tests")
     def test_create_multiple_machines(self, client: TestClient):
         """Test creating multiple machines"""
         
@@ -187,7 +185,6 @@ class TestMachineWorkflow:
         # Delete image
         client.delete(f"/api/v1/images/{image_id}")
     
-    @pytest.mark.skip(reason="Machine GET response missing image_id field")
     def test_machine_image_assignment(self, client: TestClient):
         """Test assigning different images to machines"""
         
@@ -253,7 +250,6 @@ class TestMachineWorkflow:
         for img_id in image_ids:
             client.delete(f"/api/v1/images/{img_id}")
     
-    @pytest.mark.skip(reason="MAC validation status codes differ (422 vs 400)")
     def test_machine_validation(self, client: TestClient):
         """Test machine validation and error handling"""
         
@@ -309,7 +305,6 @@ class TestMachineWorkflow:
         response = client.post("/api/v1/machines", json=invalid_mac_machine)
         assert response.status_code == 400  # Invalid MAC format
     
-    @pytest.mark.skip(reason="PUT /api/v1/machines/{id} endpoint not yet implemented")
     def test_machine_status_tracking(self, client: TestClient):
         """Test machine status tracking"""
         

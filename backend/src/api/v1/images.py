@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from typing import List, Optional
-from pydantic import BaseModel, field_serializer
+from typing import List, Optional, Literal
+from pydantic import BaseModel, field_serializer, field_validator
 from datetime import datetime
 import shutil
 from pathlib import Path
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/images", tags=["images"])
 # Schemas
 class ImageCreate(BaseModel):
     name: str
-    type: str  # "os" or "game"
+    type: Literal["windows", "linux", "other"]  # Valid image types
     description: str | None = None
     storage_path: str | None = None
     size_bytes: int = 0
@@ -106,6 +106,19 @@ async def create_image(
         storage_path = f"/var/lib/ggnet/images/{image_data.type}/{image_data.name}"
     else:
         storage_path = image_data.storage_path
+
+    # Handle default flag - only one image can be default per type
+    if image_data.is_default:
+        # Unset other defaults of same type
+        result = await db.execute(
+            select(Image).where(
+                Image.type == image_data.type,
+                Image.is_default == True
+            )
+        )
+        other_defaults = result.scalars().all()
+        for other in other_defaults:
+            other.is_default = False
 
     image = Image(
         name=image_data.name,

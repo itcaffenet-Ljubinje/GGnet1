@@ -229,7 +229,6 @@ class TestImageWorkflow:
         client.delete(f"/api/v1/images/{windows_id}")
         client.delete(f"/api/v1/images/{linux_id}")
     
-    @pytest.mark.skip(reason="Default flag logic in CREATE not yet implemented")
     def test_image_default_flag(self, client: TestClient):
         """Test image default flag behavior"""
         
@@ -271,7 +270,6 @@ class TestImageWorkflow:
         client.delete(f"/api/v1/images/{image1['image_id']}")
         client.delete(f"/api/v1/images/{image2['image_id']}")
     
-    @pytest.mark.skip(reason="Image type enum validation not yet implemented")
     def test_image_validation(self, client: TestClient):
         """Test image validation and error handling"""
         

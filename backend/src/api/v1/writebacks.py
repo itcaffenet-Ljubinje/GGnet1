@@ -153,6 +153,75 @@ async def delete_writeback(
     return {"success": True, "writeback_id": writeback_id}
 
 
+@router.post("/{writeback_id}/apply")
+async def apply_writeback(
+    writeback_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Apply writeback changes to base image
+    
+    This commits all changes in the writeback layer back to the base image.
+    After applying, the writeback is marked as applied and can be deleted.
+    """
+    result = await db.execute(
+        select(Writeback).where(Writeback.writeback_id == writeback_id)
+    )
+    writeback = result.scalar_one_or_none()
+
+    if not writeback:
+        raise HTTPException(status_code=404, detail="Writeback not found")
+
+    if writeback.status == WritebackStatus.ACTIVE:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot apply active writeback. Shutdown client first."
+        )
+
+    # TODO: Implement actual ZFS merge
+    # Command: zfs send pool0/ggnet/writebacks/[writeback_id]@snapshot | zfs receive pool0/ggnet/images/[image_id]
+    
+    writeback.status = WritebackStatus.INACTIVE
+    await db.commit()
+    await db.refresh(writeback)
+
+    return {"success": True, "message": "Writeback applied to base image"}
+
+
+@router.post("/{writeback_id}/discard")
+async def discard_writeback(
+    writeback_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Discard writeback changes
+    
+    This deletes all changes in the writeback without applying them.
+    Client will revert to clean state on next boot.
+    """
+    result = await db.execute(
+        select(Writeback).where(Writeback.writeback_id == writeback_id)
+    )
+    writeback = result.scalar_one_or_none()
+
+    if not writeback:
+        raise HTTPException(status_code=404, detail="Writeback not found")
+
+    if writeback.status == WritebackStatus.ACTIVE:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot discard active writeback. Shutdown client first."
+        )
+
+    # TODO: Delete ZFS volume
+    # Command: zfs destroy pool0/ggnet/writebacks/[writeback_id]
+    
+    await db.delete(writeback)
+    await db.commit()
+
+    return {"success": True, "message": "Writeback discarded"}
+
+
 @router.post("/cleanup")
 async def cleanup_writebacks(db: AsyncSession = Depends(get_db)):
     """

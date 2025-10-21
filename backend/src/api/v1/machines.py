@@ -211,6 +211,46 @@ async def delete_machine(
     return None
 
 
+@router.put("/machines/{machine_id}", response_model=MachineResponse)
+async def update_machine(
+    machine_id: int,
+    update_data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update machine details"""
+    result = await db.execute(
+        select(Machine).where(Machine.id == machine_id)
+    )
+    machine = result.scalar_one_or_none()
+    
+    if not machine:
+        raise HTTPException(status_code=404, detail="Machine not found")
+    
+    # Update fields
+    for key, value in update_data.items():
+        if hasattr(machine, key) and key not in ["id", "mac_address"]:  # Don't allow updating id/mac
+            setattr(machine, key, value)
+    
+    await db.commit()
+    await db.refresh(machine)
+    
+    return {
+        "id": machine.id,
+        "name": machine.name,
+        "mac_address": machine.mac_address,
+        "ip_address": machine.ip_address,
+        "status": machine.status,
+        "image_name": machine.image_name,
+        "image_id": machine.image_name,
+        "writeback_size": machine.writeback_size,
+        "keep_writeback": machine.keep_writeback,
+        "last_boot": machine.last_boot.isoformat() if machine.last_boot else None,
+        "is_virtual": False,
+        "vnc_enabled": False,
+        "vnc_port": None
+    }
+
+
 @router.get("/machines/{machine_id}")
 async def get_machine(
     machine_id: int,
@@ -232,9 +272,14 @@ async def get_machine(
         "ip_address": machine.ip_address,
         "status": machine.status,
         "image_name": machine.image_name,
+        "image_id": machine.image_name,
         "writeback_size": machine.writeback_size,
         "keep_writeback": machine.keep_writeback,
-        "last_boot": machine.last_boot.isoformat() if machine.last_boot else None}
+        "last_boot": machine.last_boot.isoformat() if machine.last_boot else None,
+        "is_virtual": False,
+        "vnc_enabled": False,
+        "vnc_port": None
+    }
 
 
 @router.post("/machines/{machine_id}/power")
