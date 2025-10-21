@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
+from datetime import datetime
 import shutil
 from pathlib import Path
 
@@ -29,6 +30,8 @@ class ImageCreate(BaseModel):
 
 
 class ImageResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    
     image_id: str
     name: str
     type: str
@@ -36,12 +39,16 @@ class ImageResponse(BaseModel):
     size_bytes: int
     status: str
     is_default: bool
-    creation_date: str
+    creation_date: str | datetime
     storage_path: str | None = None
     description: str | None = None
-
-    class Config:
-        from_attributes = True
+    
+    @field_serializer('creation_date')
+    def serialize_datetime(self, dt: datetime | str, _info):
+        """Convert datetime to ISO string"""
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+        return dt
 
 
 # Endpoints
