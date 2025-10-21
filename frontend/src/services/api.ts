@@ -200,9 +200,13 @@ export interface Snapshot {
 }
 
 export interface SnapshotCreate {
-  image_id: string;
-  comment?: string;
-  created_by?: string;
+  base_image_id: string;
+  name: string;
+  description?: string;
+  writeback_id?: string;
+  source_writeback_id?: string;
+  size_bytes?: number;
+  protected?: boolean;
 }
 
 export async function getSnapshots(): Promise<Snapshot[]> {

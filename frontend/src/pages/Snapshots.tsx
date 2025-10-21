@@ -12,9 +12,9 @@ import { Camera, Plus, Trash2, RotateCcw } from 'lucide-react';
 const Snapshots = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newSnapshot, setNewSnapshot] = useState<SnapshotCreate>({
-    image_id: '',
-    comment: '',
-    created_by: 'admin',
+    base_image_id: '',
+    name: '',
+    description: '',
   });
 
   const queryClient = useQueryClient();
@@ -37,7 +37,7 @@ const Snapshots = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
       setShowCreateForm(false);
-      setNewSnapshot({ image_id: '', comment: '', created_by: 'admin' });
+      setNewSnapshot({ base_image_id: '', name: '', description: '' });
       alert('Snapshot created successfully!');
     },
     onError: (error: Error) => {
@@ -142,9 +142,9 @@ const Snapshots = () => {
                   Select Image *
                 </label>
                 <select
-                  value={newSnapshot.image_id}
+                  value={newSnapshot.base_image_id}
                   onChange={(e) =>
-                    setNewSnapshot({ ...newSnapshot, image_id: e.target.value })
+                    setNewSnapshot({ ...newSnapshot, base_image_id: e.target.value })
                   }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
@@ -160,27 +160,28 @@ const Snapshots = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
-                  Created By
+                  Snapshot Name *
                 </label>
                 <input
                   type="text"
-                  value={newSnapshot.created_by}
+                  value={newSnapshot.name}
                   onChange={(e) =>
-                    setNewSnapshot({ ...newSnapshot, created_by: e.target.value })
+                    setNewSnapshot({ ...newSnapshot, name: e.target.value })
                   }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="admin"
+                  placeholder="e.g., snapshot-2025-10-21"
+                  required
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
-                Comment / Description
+                Description
               </label>
               <textarea
-                value={newSnapshot.comment || ''}
-                onChange={(e) => setNewSnapshot({ ...newSnapshot, comment: e.target.value })}
+                value={newSnapshot.description || ''}
+                onChange={(e) => setNewSnapshot({ ...newSnapshot, description: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Before system update"
                 rows={3}
