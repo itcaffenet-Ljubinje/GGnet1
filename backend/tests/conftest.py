@@ -29,12 +29,29 @@ def mock_db():
     # Mock refresh to populate database-generated fields
     async def mock_refresh(obj):
         """Simulate database refresh by populating generated fields"""
+        # Image fields
         if hasattr(obj, 'image_id') and obj.image_id is None:
             obj.image_id = str(uuid.uuid4())
         if hasattr(obj, 'version') and obj.version is None:
             obj.version = 1
         if hasattr(obj, 'creation_date') and obj.creation_date is None:
             obj.creation_date = datetime.now()
+        
+        # Machine fields
+        if hasattr(obj, 'id') and obj.id is None:
+            obj.id = 1
+        if hasattr(obj, 'writeback_size') and obj.writeback_size is None:
+            obj.writeback_size = 0
+        if hasattr(obj, 'keep_writeback') and obj.keep_writeback is None:
+            obj.keep_writeback = False
+        
+        # Snapshot fields
+        if hasattr(obj, 'snapshot_id') and obj.snapshot_id is None:
+            obj.snapshot_id = str(uuid.uuid4())
+        
+        # Writeback fields
+        if hasattr(obj, 'writeback_id') and obj.writeback_id is None:
+            obj.writeback_id = str(uuid.uuid4())
     
     db.refresh = AsyncMock(side_effect=mock_refresh)
     

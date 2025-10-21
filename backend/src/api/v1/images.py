@@ -7,6 +7,7 @@ Manage system and game images for diskless deployment.
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from pydantic import BaseModel, field_serializer
 from datetime import datetime
@@ -101,10 +102,51 @@ async def create_image(
     )
 
     db.add(image)
-    await db.commit()
-    await db.refresh(image)
+    try:
+        await db.commit()
+        await db.refresh(image)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Image with name '{image_data.name}' already exists")
 
     return image
+
+
+@router.get("/{image_id}", response_model=ImageResponse)
+async def get_image(
+    image_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get image by ID"""
+    result = await db.execute(
+        select(Image).where(Image.image_id == image_id)
+    )
+    image = result.scalar_one_or_none()
+    
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return image
+
+
+@router.delete("/{image_id}")
+async def delete_image(
+    image_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete image"""
+    result = await db.execute(
+        select(Image).where(Image.image_id == image_id)
+    )
+    image = result.scalar_one_or_none()
+    
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    await db.delete(image)
+    await db.commit()
+    
+    return {"message": "Image deleted successfully"}
 
 
 @router.post("/upload")

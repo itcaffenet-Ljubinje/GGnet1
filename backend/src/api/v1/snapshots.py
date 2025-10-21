@@ -8,8 +8,10 @@ Apply snapshots to create new image versions.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
+from datetime import datetime
 
 from db.base import get_db
 from db.models import Snapshot, Writeback, Image, SnapshotStatus
@@ -19,24 +21,32 @@ router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 
 # Schemas
 class SnapshotCreate(BaseModel):
-    writeback_id: str
+    writeback_id: str | None = None
+    base_image_id: str | None = None
     name: str
     description: str | None = None
+    size_bytes: int = 0
     protected: bool = False
 
 
 class SnapshotResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    
     snapshot_id: str
     name: str
-    source_writeback_id: str
+    source_writeback_id: str | None = None
     base_image_id: str
     size_bytes: int
     status: SnapshotStatus
-    date_created: str
+    date_created: str | datetime
     protected: bool
-
-    class Config:
-        from_attributes = True
+    
+    @field_serializer('date_created')
+    def serialize_datetime(self, dt: datetime | str, _info):
+        """Convert datetime to ISO string"""
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+        return dt
 
 
 class ApplySnapshotRequest(BaseModel):
@@ -56,56 +66,124 @@ async def list_snapshots(db: AsyncSession = Depends(get_db)):
     return snapshots
 
 
-@router.post("/", response_model=SnapshotResponse)
+@router.post("/", response_model=SnapshotResponse, status_code=201)
 async def create_snapshot(
     snapshot_data: SnapshotCreate,
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Create snapshot from writeback
+    Create snapshot from writeback or directly from image
 
     This captures client changes into an immutable snapshot.
     See docs/PIM_TECHNICAL_ARCHITECTURE.md Section 3.2 for full logic.
     """
-    # Verify writeback exists
-    result = await db.execute(
-        select(Writeback).where(Writeback.writeback_id == snapshot_data.writeback_id)
-    )
-    writeback = result.scalar_one_or_none()
+    # Option 1: Create from writeback
+    if snapshot_data.writeback_id:
+        result = await db.execute(
+            select(Writeback).where(Writeback.writeback_id == snapshot_data.writeback_id)
+        )
+        writeback = result.scalar_one_or_none()
 
-    if not writeback:
-        raise HTTPException(status_code=404, detail="Writeback not found")
+        if not writeback:
+            raise HTTPException(status_code=404, detail="Writeback not found")
 
-    if writeback.status == "ACTIVE":
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot snapshot active Writeback. Shutdown client first."
+        if writeback.status == "ACTIVE":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot snapshot active Writeback. Shutdown client first."
+            )
+
+        snapshot = Snapshot(
+            name=snapshot_data.name,
+            source_writeback_id=snapshot_data.writeback_id,
+            source_client_id=writeback.attached_client_id,
+            base_image_id=writeback.base_image_id,
+            description=snapshot_data.description,
+            size_bytes=writeback.size_of_changes,
+            protected=snapshot_data.protected,
+            status=SnapshotStatus.ACTIVE
         )
 
-    # TODO: Create ZFS snapshot
-    # Command: zfs snapshot pool0/ggnet/writebacks/[writeback_id]@[snapshot_id]
-
-    snapshot = Snapshot(
-        name=snapshot_data.name,
-        source_writeback_id=snapshot_data.writeback_id,
-        source_client_id=writeback.attached_client_id,
-        base_image_id=writeback.base_image_id,
-        description=snapshot_data.description,
-        size_bytes=writeback.size_of_changes,
-        protected=snapshot_data.protected,
-        status=SnapshotStatus.ACTIVE
-    )
+        # Mark writeback as ready for snapshot
+        writeback.status = "READY_FOR_SNAPSHOT"
+        writeback.ready_for_snapshot = True
+    
+    # Option 2: Create directly from image
+    elif snapshot_data.base_image_id:
+        result = await db.execute(
+            select(Image).where(Image.image_id == snapshot_data.base_image_id)
+        )
+        image = result.scalar_one_or_none()
+        
+        if not image:
+            raise HTTPException(status_code=404, detail="Base image not found")
+        
+        snapshot = Snapshot(
+            name=snapshot_data.name,
+            source_writeback_id=None,
+            source_client_id=None,
+            base_image_id=snapshot_data.base_image_id,
+            description=snapshot_data.description,
+            size_bytes=snapshot_data.size_bytes,
+            protected=snapshot_data.protected,
+            status=SnapshotStatus.ACTIVE
+        )
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail="Either writeback_id or base_image_id must be provided"
+        )
 
     db.add(snapshot)
 
-    # Mark writeback as ready for snapshot
-    writeback.status = "READY_FOR_SNAPSHOT"
-    writeback.ready_for_snapshot = True
-
-    await db.commit()
-    await db.refresh(snapshot)
+    try:
+        await db.commit()
+        await db.refresh(snapshot)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Snapshot with name '{snapshot_data.name}' already exists")
 
     return snapshot
+
+
+@router.get("/{snapshot_id}", response_model=SnapshotResponse)
+async def get_snapshot(
+    snapshot_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get snapshot by ID"""
+    result = await db.execute(
+        select(Snapshot).where(Snapshot.snapshot_id == snapshot_id)
+    )
+    snapshot = result.scalar_one_or_none()
+    
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    
+    return snapshot
+
+
+@router.delete("/{snapshot_id}")
+async def delete_snapshot(
+    snapshot_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete snapshot"""
+    result = await db.execute(
+        select(Snapshot).where(Snapshot.snapshot_id == snapshot_id)
+    )
+    snapshot = result.scalar_one_or_none()
+    
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    
+    if snapshot.protected:
+        raise HTTPException(status_code=400, detail="Cannot delete protected snapshot")
+    
+    await db.delete(snapshot)
+    await db.commit()
+    
+    return {"message": "Snapshot deleted successfully"}
 
 
 @router.post("/apply")
