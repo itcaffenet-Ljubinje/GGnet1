@@ -1,492 +1,800 @@
-# 🚀 ggNet Deployment Guide
+# 🚀 ggNet DEPLOYMENT GUIDE
 
-Complete guide for deploying ggNet to Debian/Ubuntu servers.
-
----
-
-## Table of Contents
-
-1. [Quick Start](#quick-start)
-2. [Manual Installation](#manual-installation)
-3. [Automated Deployment (GitHub Actions)](#automated-deployment-github-actions)
-4. [Production Setup](#production-setup)
-5. [Troubleshooting](#troubleshooting)
+**Production Deployment na Linux Server**
 
 ---
 
-## Quick Start
+## 📋 **TABLE OF CONTENTS**
 
-### Option 1: One-Command Install (Recommended)
+1. [Pre-Deployment Checklist](#pre-deployment-checklist)
+2. [Server Requirements](#server-requirements)
+3. [Installation Steps](#installation-steps)
+4. [Configuration](#configuration)
+5. [Testing](#testing)
+6. [Production Startup](#production-startup)
+7. [Monitoring](#monitoring)
+8. [Backup & Recovery](#backup--recovery)
+9. [Troubleshooting](#troubleshooting)
+
+---
+
+## ✅ **PRE-DEPLOYMENT CHECKLIST:**
+
+Pre nego što započneš deployment:
+
+### **Planning:**
+- [ ] ✅ Identifikovao si target server
+- [ ] ✅ Proverio si hardware requirements
+- [ ] ✅ Planirao si storage array konfiguraciju
+- [ ] ✅ Rezervisao si IP adrese (static)
+- [ ] ✅ Pripremio si DNS records
+- [ ] ✅ Napravio si backup plan
+
+### **Access:**
+- [ ] ✅ Imaš SSH pristup serveru
+- [ ] ✅ Imaš sudo/root privilegije
+- [ ] ✅ Imaš console access (iLO/iDRAC)
+- [ ] ✅ Možeš da restartuješ server
+
+### **Testing:**
+- [ ] ✅ Unit testovi prolaze (59/59)
+- [ ] ✅ Integration testovi prolaze (21/21)
+- [ ] ✅ Frontend build uspešan
+- [ ] ✅ Lokalno testiranje završeno
+
+---
+
+## 💻 **SERVER REQUIREMENTS:**
+
+### **Minimum:**
+- **OS:** Debian 11/12 ili Ubuntu 20.04/22.04 LTS Server
+- **CPU:** 2 cores (Intel Xeon/AMD EPYC)
+- **RAM:** 4GB
+- **Storage:** 
+  - 100GB OS disk (SSD preporučeno)
+  - 2+ diskova za array (identični)
+- **Network:** 1Gbps Ethernet
+
+### **Preporučeno:**
+- **OS:** Ubuntu 22.04 LTS Server
+- **CPU:** 4+ cores @ 2.4GHz+
+- **RAM:** 8-16GB ECC
+- **Storage:**
+  - 250GB NVMe OS disk
+  - 4-10x 1.92TB SSD za array (identični model)
+- **Network:** 10Gbps Ethernet (dual port)
+- **RAID Controller:** HBA mode (ako postoji)
+
+### **Production:**
+- **OS:** Ubuntu 22.04 LTS Server
+- **CPU:** 8+ cores (Intel Xeon Silver/Gold)
+- **RAM:** 32GB+ ECC
+- **Storage:**
+  - 500GB NVMe OS disk (RAID1)
+  - 10+ x 3.84TB NVMe SSD za array
+- **Network:** 25Gbps Ethernet (bonded)
+- **Redundancy:** Dual PSU, IPMI/iLO
+
+---
+
+## 🔧 **INSTALLATION STEPS:**
+
+### **STEP 1: Server Preparation** (5 min)
 
 ```bash
-# On your Debian/Ubuntu server
-git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git
-cd GGnet1
-chmod +x scripts/install.sh
-sudo bash scripts/install.sh
-```
+# 1. SSH na server
+ssh root@your-server-ip
 
-### Option 2: Automated via GitHub Actions
+# 2. Update sistema
+apt-get update && apt-get upgrade -y
 
-1. Configure GitHub Secrets (see below)
-2. Push to `main` branch
-3. Deployment runs automatically
+# 3. Install git
+apt-get install -y git
 
----
-
-## Manual Installation
-
-### Prerequisites
-
-- **OS**: Debian 11+ or Ubuntu 20.04+
-- **RAM**: Minimum 4GB (8GB recommended)
-- **Disk**: 50GB+ free space
-- **Network**: Static IP address
-- **User**: Root or sudo access
-
-### Step 1: Clone Repository
-
-```bash
+# 4. Preuzmi kod
 cd /opt
-git clone https://github.com/itcaffenet-Ljubinje/GGnet1.git ggnet
+git clone https://github.com/your-org/ggnet.git
 cd ggnet
 ```
 
-### Step 2: Run Installation Script
+---
+
+### **STEP 2: System Setup** (10 min)
 
 ```bash
-chmod +x scripts/install.sh
-sudo bash scripts/install.sh
+# Pokreni Linux server setup
+cd backend
+chmod +x scripts/setup_linux_server.sh
+sudo bash scripts/setup_linux_server.sh
 ```
 
-**What the installer does:**
-- ✅ Updates system packages
-- ✅ Installs Python 3, Node.js, Nginx, SQLite
-- ✅ Creates `ggnet` user and directories
-- ✅ Sets up Python virtual environment
-- ✅ Installs backend dependencies
-- ✅ Builds frontend production bundle
-- ✅ Initializes SQLite database
-- ✅ Configures systemd services
-- ✅ Sets up Nginx reverse proxy
-- ✅ Enables and starts services
+**Ovaj script instalira:**
+- ✅ Python 3 + pip + venv
+- ✅ PostgreSQL database
+- ✅ ZFS utilities (zpool, zfs)
+- ✅ MD RAID utilities (mdadm)
+- ✅ Network services (DHCP, TFTP, NFS)
+- ✅ Monitoring tools (Prometheus)
+- ✅ Systemd service files
 
-### Step 3: Verify Installation
+---
+
+### **STEP 3: Storage Array Setup** (15-30 min)
+
+#### **Option A: ZFS (Preporučeno)**
+
+```bash
+# 1. Proveri dostupne diskove
+lsblk
+
+# 2. Kreiraj ZFS pool
+# RAID1 (mirror) - 2 diska:
+zpool create pool0 mirror /dev/sdb /dev/sdc
+
+# RAID10 (striped mirrors) - 4 diska:
+zpool create pool0 mirror /dev/sdb /dev/sdc mirror /dev/sdd /dev/sde
+
+# RAIDZ2 (double parity) - 6+ diskova:
+zpool create pool0 raidz2 /dev/sdb /dev/sdc /dev/sdd /dev/sde /dev/sdf /dev/sdg
+
+# 3. Proveri status
+zpool status pool0
+zpool list pool0
+
+# 4. Kreiraj filesystems
+zfs create pool0/images
+zfs create pool0/writebacks
+zfs create pool0/snapshots
+
+# 5. Set mountpoints
+zfs set mountpoint=/srv/ggnet/array/images pool0/images
+zfs set mountpoint=/srv/ggnet/array/writebacks pool0/writebacks
+zfs set mountpoint=/srv/ggnet/array/snapshots pool0/snapshots
+
+# 6. Set compression (optional, preporučeno)
+zfs set compression=lz4 pool0
+
+# 7. Set permissions
+chown -R ggnet:ggnet /srv/ggnet/array
+```
+
+#### **Option B: MD RAID**
+
+```bash
+# 1. Kreiraj RAID array
+# RAID1 - 2 diska:
+mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc
+
+# RAID10 - 4 diska:
+mdadm --create /dev/md0 --level=10 --raid-devices=4 /dev/sd{b,c,d,e}
+
+# 2. Format i mount
+mkfs.ext4 /dev/md0
+mkdir -p /srv/ggnet/array
+mount /dev/md0 /srv/ggnet/array
+
+# 3. Add to fstab
+echo "/dev/md0 /srv/ggnet/array ext4 defaults 0 2" >> /etc/fstab
+
+# 4. Kreiraj direktorijume
+mkdir -p /srv/ggnet/array/{images,writebacks,snapshots}
+chown -R ggnet:ggnet /srv/ggnet/array
+```
+
+---
+
+### **STEP 4: Backend Setup** (5 min)
+
+```bash
+# 1. Kopiraj backend kod
+sudo cp -r /opt/ggnet/backend /srv/ggnet/
+
+# 2. Promeni na ggnet user
+sudo su - ggnet
+
+# 3. Setup backend
+cd /srv/ggnet/backend
+bash scripts/setup_backend.sh
+```
+
+---
+
+### **STEP 5: Database Configuration** (2 min)
+
+```bash
+# Kao postgres user
+sudo -u postgres psql << EOF
+CREATE DATABASE ggnet;
+CREATE USER ggnet WITH PASSWORD 'your-secure-password';
+GRANT ALL PRIVILEGES ON DATABASE ggnet TO ggnet;
+\q
+EOF
+
+# Update .env fajl
+sudo -u ggnet nano /srv/ggnet/backend/.env
+# Promeni DATABASE_URL i SECRET_KEY
+```
+
+---
+
+### **STEP 6: Network Configuration** (10 min)
+
+```bash
+# 1. Configure DHCP
+sudo nano /etc/dhcp/dhcpd.conf
+
+# Add:
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    range 192.168.1.100 192.168.1.200;
+    option routers 192.168.1.1;
+    option domain-name-servers 8.8.8.8;
+    next-server 192.168.1.10;  # PXE server (this server)
+    filename "pxelinux.0";
+}
+
+# 2. Restart DHCP
+sudo systemctl restart isc-dhcp-server
+
+# 3. Configure TFTP
+sudo nano /etc/default/tftpd-hpa
+
+# Set:
+TFTP_DIRECTORY="/srv/ggnet/tftp"
+TFTP_OPTIONS="--secure"
+
+sudo systemctl restart tftpd-hpa
+
+# 4. Configure NFS
+sudo nano /etc/exports
+
+# Add:
+/srv/ggnet/array/images *(ro,sync,no_subtree_check)
+/srv/ggnet/array/writebacks *(rw,sync,no_subtree_check)
+
+sudo exportfs -a
+sudo systemctl restart nfs-kernel-server
+```
+
+---
+
+## ⚙️ **CONFIGURATION:**
+
+### **Environment Variables (.env):**
+
+```bash
+# Production configuration
+DATABASE_URL=postgresql+asyncpg://ggnet:SECURE_PASSWORD@localhost/ggnet
+SECRET_KEY=your-32-char-hex-key
+API_HOST=0.0.0.0
+API_PORT=8000
+LOG_LEVEL=INFO
+ENVIRONMENT=production
+
+# Storage paths
+STORAGE_ROOT=/srv/ggnet/array
+IMAGES_PATH=/srv/ggnet/array/images
+WRITEBACKS_PATH=/srv/ggnet/array/writebacks
+SNAPSHOTS_PATH=/srv/ggnet/array/snapshots
+
+# Array settings
+DEFAULT_ARRAY_TYPE=zfs
+RESERVED_SPACE_PERCENT=15
+
+# Dry-run mode (for testing)
+GGNET_DRY_RUN=false
+
+# Feature flags
+ENABLE_AUTO_DISCOVERY=true
+ENABLE_METRICS=true
+ENABLE_WEBHOOKS=false
+```
+
+---
+
+## 🧪 **TESTING:**
+
+### **1. Safe Detection Tests:**
+
+```bash
+cd /srv/ggnet/backend
+source venv/bin/activate
+
+# Test array detection
+pytest tests/test_real_hardware.py::TestRealHardwareDetection -v -s
+
+# Test commands availability
+pytest tests/test_real_hardware.py::TestRealHardwareReadOnly -v -s
+```
+
+### **2. Dry-Run Mode Testing:**
+
+```bash
+# Enable dry-run
+export GGNET_DRY_RUN=true
+
+# Start backend
+uvicorn main:app --host 0.0.0.0 --port 8000
+
+# Test API (neće izvršiti stvarne komande)
+curl -X POST http://localhost:8000/api/v1/storage/array/stripes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stripe_number": 1,
+    "raid_type": "mirror",
+    "devices": ["sdd", "sde"]
+  }'
+
+# Check logs (trebalo bi da kaže "DRY RUN")
+tail -f /var/log/ggnet/backend.log
+```
+
+### **3. Live Testing:**
+
+```bash
+# Disable dry-run
+export GGNET_DRY_RUN=false
+
+# Test with real API calls
+curl http://localhost:8000/api/v1/storage/array/status | jq
+curl http://localhost:8000/api/v1/storage/array/available-drives | jq
+```
+
+---
+
+## 🚀 **PRODUCTION STARTUP:**
+
+### **Manual Start:**
+
+```bash
+sudo su - ggnet
+cd /srv/ggnet/backend
+source venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+### **Systemd Service (Preporučeno):**
+
+```bash
+# Enable service
+sudo systemctl enable ggnet-backend
+
+# Start service
+sudo systemctl start ggnet-backend
+
+# Check status
+sudo systemctl status ggnet-backend
+
+# View logs
+sudo journalctl -u ggnet-backend -f
+```
+
+### **With Nginx Reverse Proxy:**
+
+```bash
+# Install Nginx
+sudo apt-get install -y nginx
+
+# Configure
+sudo nano /etc/nginx/sites-available/ggnet
+
+# Add:
+server {
+    listen 80;
+    server_name ggnet.yourdomain.com;
+    
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+
+# Enable
+sudo ln -s /etc/nginx/sites-available/ggnet /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
+```
+
+---
+
+## 📊 **MONITORING:**
+
+### **1. System Monitoring:**
 
 ```bash
 # Check services
 sudo systemctl status ggnet-backend
+sudo systemctl status postgresql
 sudo systemctl status nginx
 
-# Test API
-curl http://localhost:8080/api/status
+# Check resources
+htop
+df -h
+zpool iostat 1  # For ZFS
+cat /proc/mdstat  # For MD RAID
 
-# Test frontend
-curl http://localhost
+# Check logs
+sudo journalctl -u ggnet-backend -f
+tail -f /var/log/ggnet/backend.log
 ```
 
-### Step 4: Access Web Interface
+### **2. API Health Checks:**
 
-Open browser and navigate to:
-- **Frontend**: `http://your-server-ip`
-- **Backend API**: `http://your-server-ip:8080`
-- **API Docs**: `http://your-server-ip/docs`
+```bash
+# Health endpoint
+curl http://localhost:8000/health
+
+# Array status
+curl http://localhost:8000/api/v1/storage/array/status
+
+# Metrics endpoint (if enabled)
+curl http://localhost:8000/metrics
+```
+
+### **3. Prometheus Integration:**
+
+```bash
+# View node exporter metrics
+curl http://localhost:9100/metrics
+
+# Configure Prometheus to scrape ggNet
+sudo nano /etc/prometheus/prometheus.yml
+
+# Add:
+scrape_configs:
+  - job_name: 'ggnet-backend'
+    static_configs:
+      - targets: ['localhost:8000']
+  
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+
+# Restart Prometheus
+sudo systemctl restart prometheus
+```
 
 ---
 
-## Automated Deployment (GitHub Actions)
+## 💾 **BACKUP & RECOVERY:**
 
-### Setup GitHub Secrets
-
-1. **Generate SSH Key:**
-   ```bash
-   ssh-keygen -t rsa -b 4096 -C "github-actions@ggnet"
-   # Save as: ~/.ssh/github_actions_rsa
-   ```
-
-2. **Copy Public Key to Server:**
-   ```bash
-   ssh-copy-id -i ~/.ssh/github_actions_rsa.pub user@your-server.com
-   ```
-
-3. **Add Secrets to GitHub:**
-   - Go to: `Settings → Secrets and variables → Actions`
-   - Add these secrets:
-     ```
-     SSH_PRIVATE_KEY       # Contents of ~/.ssh/github_actions_rsa
-     DEBIAN_SERVER_HOST    # your-server.com or IP
-     DEBIAN_SERVER_USER    # SSH username
-     ```
-
-### Deploy
-
-**Automatic (on push to main):**
-```bash
-git checkout main
-git merge ggnet-refactor
-git push origin main
-# Deployment starts automatically
-```
-
-**Manual:**
-1. Go to GitHub Actions tab
-2. Select "Debian Production Deployment"
-3. Click "Run workflow"
-4. Select environment
-5. Click "Run workflow"
-
-### What Happens During Deployment
-
-1. 🔐 SSH connection established
-2. 💾 Existing installation backed up
-3. 🛑 Services stopped
-4. 📦 Files synced to server
-5. 🔧 Installation script runs
-6. ✅ Installation verified
-7. 🚀 Services started
-8. 🏥 Health checks run
-9. 📊 Deployment summary shown
-
----
-
-## Production Setup
-
-### 1. Firewall Configuration
+### **Database Backup:**
 
 ```bash
-# Allow HTTP, HTTPS, and SSH
-sudo ufw allow 22/tcp    # SSH
-sudo ufw allow 80/tcp    # HTTP
-sudo ufw allow 443/tcp   # HTTPS
-sudo ufw allow 8080/tcp  # Backend API (optional, if not using Nginx proxy)
-sudo ufw enable
-```
+# Manual backup
+sudo -u postgres pg_dump ggnet > /backup/ggnet_$(date +%Y%m%d).sql
 
-### 2. SSL/TLS Certificate (Let's Encrypt)
-
-```bash
-# Install Certbot
-sudo apt-get install certbot python3-certbot-nginx
-
-# Get certificate
-sudo certbot --nginx -d your-domain.com
-
-# Auto-renewal is configured automatically
-```
-
-### 3. Configure Nginx for Production
-
-Edit `/etc/nginx/sites-available/ggnet`:
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-
-    # Frontend
-    location / {
-        root /opt/ggnet/frontend/dist;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Backend API
-    location /api/ {
-        proxy_pass http://localhost:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-### 4. Database Backup
-
-Create cron job for automatic backups:
-
-```bash
-# Edit crontab
+# Automated backup (cron)
 sudo crontab -e
 
-# Add this line (runs daily at 2 AM)
-0 2 * * * /opt/ggnet/scripts/backup-db.sh
+# Add:
+0 2 * * * /usr/bin/pg_dump -U postgres ggnet > /backup/ggnet_$(date +\%Y\%m\%d).sql
 ```
 
-Create backup script:
+### **ZFS Snapshots:**
 
 ```bash
-#!/bin/bash
-# /opt/ggnet/scripts/backup-db.sh
+# Create snapshot
+zfs snapshot pool0/images@backup_$(date +%Y%m%d)
 
-BACKUP_DIR="/opt/ggnet/backups"
-mkdir -p "$BACKUP_DIR"
+# List snapshots
+zfs list -t snapshot
 
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/ggnet-$TIMESTAMP.db"
+# Restore snapshot
+zfs rollback pool0/images@backup_20251021
 
-# Backup database
-cp /opt/ggnet/backend/ggnet.db "$BACKUP_FILE"
-
-# Compress backup
-gzip "$BACKUP_FILE"
-
-# Keep only last 30 days of backups
-find "$BACKUP_DIR" -name "ggnet-*.db.gz" -mtime +30 -delete
-
-echo "Backup created: $BACKUP_FILE.gz"
+# Auto-snapshot (cron)
+0 */4 * * * /usr/sbin/zfs snapshot pool0/images@auto_$(date +\%Y\%m\%d_\%H\%M)
 ```
 
-### 5. Monitoring
+### **Configuration Backup:**
 
-**System Resources:**
 ```bash
-# Install monitoring tools
-sudo apt-get install htop iotop
-
-# Check system status
-htop
-iotop
-df -h
-free -h
-```
-
-**Service Logs:**
-```bash
-# Backend logs
-sudo journalctl -u ggnet-backend -f
-
-# Nginx logs
-sudo tail -f /var/log/nginx/access.log
-sudo tail -f /var/log/nginx/error.log
-
-# System logs
-sudo journalctl -xe
-```
-
-### 6. Performance Tuning
-
-**Backend (systemd service):**
-Edit `/etc/systemd/system/ggnet-backend.service`:
-
-```ini
-[Service]
-# Increase worker processes
-Environment="WORKERS=4"
-
-# Memory limits
-LimitNOFILE=65536
-MemoryMax=2G
-```
-
-**Nginx:**
-Edit `/etc/nginx/nginx.conf`:
-
-```nginx
-worker_processes auto;
-worker_connections 1024;
-
-# Gzip compression
-gzip on;
-gzip_vary on;
-gzip_types text/plain text/css application/json application/javascript;
+# Backup config files
+tar -czf /backup/ggnet_config_$(date +%Y%m%d).tar.gz \
+  /srv/ggnet/backend/.env \
+  /etc/systemd/system/ggnet-backend.service \
+  /etc/nginx/sites-available/ggnet \
+  /etc/dhcp/dhcpd.conf
 ```
 
 ---
 
-## Troubleshooting
+## 🐛 **TROUBLESHOOTING:**
 
-### Service Won't Start
+### **Problem 1: Service won't start**
 
 ```bash
-# Check service status
-sudo systemctl status ggnet-backend
-
-# View logs
+# Check logs
 sudo journalctl -u ggnet-backend -n 50
 
-# Check if port is in use
-sudo netstat -tulpn | grep :8080
+# Check permissions
+ls -la /srv/ggnet/backend
+ls -la /srv/ggnet/array
 
-# Restart service
-sudo systemctl restart ggnet-backend
+# Fix permissions
+sudo chown -R ggnet:ggnet /srv/ggnet
 ```
 
-### Database Issues
+### **Problem 2: Database connection failed**
 
 ```bash
-# Check database file
-ls -lh /opt/ggnet/backend/ggnet.db
+# Check PostgreSQL
+sudo systemctl status postgresql
 
-# Check database integrity
-sqlite3 /opt/ggnet/backend/ggnet.db "PRAGMA integrity_check;"
+# Test connection
+sudo -u ggnet psql -h localhost -U ggnet -d ggnet
 
-# Backup and recreate
-cp /opt/ggnet/backend/ggnet.db /opt/ggnet/backend/ggnet.db.backup
-cd /opt/ggnet/backend
-source venv/bin/activate
-python -c "from src.db.base import init_db; import asyncio; asyncio.run(init_db())"
+# Reset password
+sudo -u postgres psql
+ALTER USER ggnet WITH PASSWORD 'new-password';
 ```
 
-### Frontend Not Loading
+### **Problem 3: Array not detected**
 
 ```bash
-# Check Nginx config
-sudo nginx -t
+# For ZFS:
+zpool list
+zpool import -a  # Import all pools
+zpool status
 
-# Check frontend build
-ls -lh /opt/ggnet/frontend/dist/
-
-# Rebuild frontend
-cd /opt/ggnet/frontend
-npm install
-npm run build
-
-# Restart Nginx
-sudo systemctl restart nginx
+# For MD RAID:
+cat /proc/mdstat
+mdadm --detail --scan
+mdadm --assemble --scan
 ```
 
-### API Not Responding
+### **Problem 4: API returns 500 errors**
 
 ```bash
-# Test backend directly
-curl http://localhost:8080/api/status
+# Check logs
+tail -f /var/log/ggnet/backend.log
 
-# Test through Nginx
-curl http://localhost/api/status
+# Check storage manager
+sudo -u ggnet python3 << EOF
+from core.storage_manager import get_storage_manager
+manager = get_storage_manager()
+print(f"Array Type: {manager.array_type}")
+print(f"Array Name: {manager.array_name}")
+status = manager.get_array_status()
+print(f"Status: {status}")
+EOF
+```
 
-# Check CORS settings
-cat /opt/ggnet/backend/.env | grep CORS
+---
 
-# Check firewall
+## 🔒 **SECURITY:**
+
+### **Firewall:**
+
+```bash
+# Enable UFW
+sudo ufw enable
+
+# Allow SSH
+sudo ufw allow 22/tcp
+
+# Allow HTTP/HTTPS
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Allow backend API (internal only)
+sudo ufw allow from 192.168.1.0/24 to any port 8000
+
+# Allow DHCP/TFTP/NFS (internal only)
+sudo ufw allow from 192.168.1.0/24 to any port 67 proto udp
+sudo ufw allow from 192.168.1.0/24 to any port 69 proto udp
+sudo ufw allow from 192.168.1.0/24 to any port 2049
+
+# Status
 sudo ufw status
 ```
 
-### Permission Issues
+### **SSL/TLS:**
 
 ```bash
-# Fix ownership
-sudo chown -R ggnet:ggnet /opt/ggnet
+# Install certbot
+sudo apt-get install -y certbot python3-certbot-nginx
 
-# Fix permissions
-sudo chmod +x /opt/ggnet/backend/run.py
-sudo chmod +x /opt/ggnet/scripts/*.sh
+# Get certificate
+sudo certbot --nginx -d ggnet.yourdomain.com
 
-# Check systemd service user
-cat /etc/systemd/system/ggnet-backend.service | grep User
-```
-
-### Low Disk Space
-
-```bash
-# Check disk usage
-df -h
-
-# Clean old logs
-sudo journalctl --vacuum-time=7d
-
-# Remove old backups
-find /opt/ggnet/backups -name "*.db.gz" -mtime +30 -delete
-
-# Clean npm cache
-cd /opt/ggnet/frontend
-npm cache clean --force
-
-# Clean pip cache
-cd /opt/ggnet/backend
-source venv/bin/activate
-pip cache purge
+# Auto-renewal
+sudo systemctl enable certbot.timer
 ```
 
 ---
 
-## Uninstallation
+## 📈 **PERFORMANCE TUNING:**
 
-### Safe Uninstall
+### **ZFS Tuning:**
 
 ```bash
-cd /opt/ggnet
-sudo bash scripts/uninstall.sh
+# Set ARC size (50% of RAM)
+echo "options zfs zfs_arc_max=17179869184" >> /etc/modprobe.d/zfs.conf
+
+# Disable atime
+zfs set atime=off pool0
+
+# Enable LZ4 compression
+zfs set compression=lz4 pool0
+
+# Set recordsize (for VM images)
+zfs set recordsize=64K pool0/images
 ```
 
-**What it does:**
-- 🛑 Stops services
-- 🗑️ Removes systemd units
-- 🗑️ Removes Nginx config
-- 🗑️ Deletes application files
-- 💾 Optionally backs up data
-
-### Manual Uninstall
+### **System Tuning:**
 
 ```bash
-# Stop services
-sudo systemctl stop ggnet-backend
-sudo systemctl disable ggnet-backend
+# Edit sysctl
+sudo nano /etc/sysctl.conf
 
-# Remove systemd files
-sudo rm /etc/systemd/system/ggnet-backend.service
-sudo rm /etc/systemd/system/ggnet-frontend.service
+# Add:
+vm.swappiness=10
+net.core.rmem_max=134217728
+net.core.wmem_max=134217728
+net.ipv4.tcp_rmem=4096 87380 67108864
+net.ipv4.tcp_wmem=4096 65536 67108864
+fs.file-max=2097152
 
-# Remove Nginx config
-sudo rm /etc/nginx/sites-enabled/ggnet
-sudo rm /etc/nginx/sites-available/ggnet
-sudo systemctl reload nginx
-
-# Remove application
-sudo rm -rf /opt/ggnet
-
-# Remove user (optional)
-sudo userdel -r ggnet
+# Apply
+sudo sysctl -p
 ```
 
 ---
 
-## Support
+## 📊 **MONITORING DASHBOARD:**
 
-**Issues or Questions?**
-- 📧 Open an issue on GitHub
-- 📚 Check documentation in `README.md`
-- 🔍 Review logs: `sudo journalctl -u ggnet-backend`
+### **Grafana Setup:**
 
-**Useful Commands:**
 ```bash
-# Service management
+# Install Grafana
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install -y grafana
+
+# Start Grafana
+sudo systemctl enable grafana-server
+sudo systemctl start grafana-server
+
+# Access: http://your-server-ip:3000
+# Default: admin/admin
+```
+
+### **Add ggNet Dashboard:**
+
+1. Open Grafana (http://server:3000)
+2. Add Prometheus data source (http://localhost:9090)
+3. Import dashboard or create custom
+4. Monitor:
+   - CPU usage
+   - RAM usage
+   - Disk I/O
+   - Network traffic
+   - Array health
+   - API response times
+
+---
+
+## ✅ **POST-DEPLOYMENT VERIFICATION:**
+
+### **Checklist:**
+
+```bash
+# 1. Service running
+sudo systemctl is-active ggnet-backend
+# Expected: active
+
+# 2. API responding
+curl http://localhost:8000/health
+# Expected: {"status": "healthy"}
+
+# 3. Array detected
+curl http://localhost:8000/api/v1/storage/array/status | jq '.exists'
+# Expected: true
+
+# 4. Devices listed
+curl http://localhost:8000/api/v1/storage/array/status | jq '.devices | length'
+# Expected: 2+ (broj diskova u array-u)
+
+# 5. Frontend can connect
+curl -I http://server-ip/api/v1/storage/array/status
+# Expected: HTTP/1.1 200 OK
+
+# 6. Logs clean
+sudo journalctl -u ggnet-backend --since "5 minutes ago" | grep ERROR
+# Expected: No critical errors
+
+# 7. Database connected
+sudo -u ggnet psql -h localhost -U ggnet -d ggnet -c "SELECT 1;"
+# Expected: 1
+
+# 8. Disk performance
+sudo dd if=/dev/zero of=/srv/ggnet/array/images/test bs=1M count=1000 oflag=direct
+# Expected: 500+ MB/s
+```
+
+---
+
+## 🎯 **QUICK COMMANDS:**
+
+```bash
+# Start backend
 sudo systemctl start ggnet-backend
+
+# Stop backend
 sudo systemctl stop ggnet-backend
+
+# Restart backend
 sudo systemctl restart ggnet-backend
-sudo systemctl status ggnet-backend
 
-# Logs
+# View logs
 sudo journalctl -u ggnet-backend -f
-sudo tail -f /var/log/nginx/error.log
 
-# Database
-sqlite3 /opt/ggnet/backend/ggnet.db
+# Check array
+zpool status  # For ZFS
+cat /proc/mdstat  # For MD RAID
 
-# Configuration
-cat /opt/ggnet/backend/.env
-cat /etc/nginx/sites-available/ggnet
+# Check API
+curl http://localhost:8000/health
+
+# Run tests
+cd /srv/ggnet/backend
+source venv/bin/activate
+pytest tests/ -v
 ```
 
 ---
 
-**Last Updated:** 2025-10-15
-**Version:** 1.0.0
+## 📞 **SUPPORT:**
 
+### **Logs Location:**
+- **Backend:** `/var/log/ggnet/backend.log`
+- **Systemd:** `journalctl -u ggnet-backend`
+- **PostgreSQL:** `/var/log/postgresql/`
+- **Nginx:** `/var/log/nginx/`
+- **ZFS:** `zpool events`
+- **MD RAID:** `dmesg | grep md`
+
+### **Status Commands:**
+```bash
+# All ggNet services
+sudo systemctl status ggnet-*
+
+# Storage health
+zpool status -v  # ZFS
+mdadm --detail /dev/md0  # MD RAID
+
+# System health
+top
+iostat -x 1
+```
+
+---
+
+## 🎉 **ZAKLJUČAK:**
+
+**Deployment steps:**
+1. ✅ Pripremi server (10 min)
+2. ✅ Setup system (10 min)
+3. ✅ Kreiraj array (15-30 min)
+4. ✅ Setup backend (5 min)
+5. ✅ Configure network (10 min)
+6. ✅ Test (30 min)
+7. ✅ Deploy (5 min)
+
+**Total time:** ~1.5-2 hours
+
+**Status check:**
+- Backend API: http://server-ip:8000
+- Health: http://server-ip:8000/health
+- Storage status: http://server-ip:8000/api/v1/storage/array/status
+- Metrics: http://server-ip:8000/metrics
+
+**Production ready!** 🚀
+
+---
+
+**Za pitanja i support, vidi dokumentaciju ili kontaktiraj tim.** ✨
