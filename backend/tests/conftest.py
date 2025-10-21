@@ -71,32 +71,6 @@ def mock_db():
     return db
 
 
-@pytest.fixture(autouse=True, scope="function")
-def cleanup_database():
-    """Auto-cleanup database after each test to prevent duplicate key errors"""
-    yield
-    # Cleanup after test
-    try:
-        import sqlite3
-        import os
-        
-        # Connect directly to SQLite database
-        db_path = os.path.join(os.path.dirname(__file__), '..', 'ggnet.db')
-        if os.path.exists(db_path):
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            
-            # Delete all test data in reverse order
-            cursor.execute("DELETE FROM snapshots")
-            cursor.execute("DELETE FROM writebacks")  
-            cursor.execute("DELETE FROM machines")
-            cursor.execute("DELETE FROM images")
-            
-            conn.commit()
-            conn.close()
-    except Exception as e:
-        # Ignore cleanup errors
-        pass
 
 
 @pytest.fixture

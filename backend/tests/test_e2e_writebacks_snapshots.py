@@ -17,6 +17,25 @@ from fastapi.testclient import TestClient
 class TestWritebackWorkflow:
     """Test complete writeback workflow"""
     
+    def teardown_method(self, method):
+        """Cleanup after each test"""
+        import sqlite3
+        import os
+        
+        try:
+            db_path = os.path.join(os.path.dirname(__file__), '..', 'ggnet.db')
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM snapshots")
+                cursor.execute("DELETE FROM writebacks")
+                cursor.execute("DELETE FROM machines")
+                cursor.execute("DELETE FROM images")
+                conn.commit()
+                conn.close()
+        except Exception:
+            pass
+    
     def test_create_and_manage_writeback(self, client: TestClient):
         """Test complete writeback lifecycle"""
         
@@ -133,6 +152,25 @@ class TestWritebackWorkflow:
 
 class TestSnapshotWorkflow:
     """Test complete snapshot workflow"""
+    
+    def teardown_method(self, method):
+        """Cleanup after each test"""
+        import sqlite3
+        import os
+        
+        try:
+            db_path = os.path.join(os.path.dirname(__file__), '..', 'ggnet.db')
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM snapshots")
+                cursor.execute("DELETE FROM writebacks")
+                cursor.execute("DELETE FROM machines")
+                cursor.execute("DELETE FROM images")
+                conn.commit()
+                conn.close()
+        except Exception:
+            pass
     
     def test_create_and_manage_snapshot(self, client: TestClient):
         """Test complete snapshot lifecycle"""
@@ -305,6 +343,25 @@ class TestSnapshotWorkflow:
 
 class TestIntegratedWorkflow:
     """Test integrated writeback and snapshot workflow"""
+    
+    def teardown_method(self, method):
+        """Cleanup after each test"""
+        import sqlite3
+        import os
+        
+        try:
+            db_path = os.path.join(os.path.dirname(__file__), '..', 'ggnet.db')
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM snapshots")
+                cursor.execute("DELETE FROM writebacks")
+                cursor.execute("DELETE FROM machines")
+                cursor.execute("DELETE FROM images")
+                conn.commit()
+                conn.close()
+        except Exception:
+            pass
     
     def test_complete_workflow(self, client: TestClient):
         """Test complete workflow: image → machine → writeback → snapshot → restore"""
