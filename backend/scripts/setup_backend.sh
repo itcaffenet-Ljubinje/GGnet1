@@ -173,7 +173,39 @@ else
 fi
 
 #############################################################################
-# 8. RUN TESTS (OPTIONAL)
+# 8. CREATE SYSTEMD SERVICE
+#############################################################################
+print_info "Creating systemd service..."
+
+cat > /tmp/ggnet-backend.service << 'EOFSERVICE'
+[Unit]
+Description=ggNet Backend API Server
+Documentation=https://github.com/itcaffenet-Ljubinje/GGnet1
+After=network.target
+
+[Service]
+Type=simple
+User=ggnet
+Group=ggnet
+WorkingDirectory=/opt/ggnet/backend
+Environment="PATH=/opt/ggnet/backend/venv/bin:/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/ggnet/backend/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOFSERVICE
+
+sudo mv /tmp/ggnet-backend.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable ggnet-backend
+print_success "Systemd service created"
+
+#############################################################################
+# 9. RUN TESTS (OPTIONAL)
 #############################################################################
 print_info "Running tests..."
 
