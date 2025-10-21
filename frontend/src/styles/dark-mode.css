@@ -1,0 +1,554 @@
+/* Dark Mode Styles for ggNet */
+
+/* Note: Dark mode supports both class-based (.dark) and prefers-color-scheme */
+/* This ensures compatibility with both manual toggle and system preferences */
+
+/* ========================================
+   LIGHT MODE - Default Colors
+   ======================================== */
+
+/* Light mode text colors - dark text on light backgrounds */
+@media (prefers-color-scheme: light) {
+  :root:not(.dark) {
+    --text-primary: #111827; /* gray-900 */
+    --text-secondary: #374151; /* gray-700 */
+    --text-tertiary: #6b7280; /* gray-500 */
+    --text-muted: #9ca3af; /* gray-400 */
+  }
+}
+
+/* ========================================
+   BACKGROUND COLORS - Dark Mode Overrides
+   ======================================== */
+
+/* White backgrounds become dark gray in dark mode */
+.dark .bg-white {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-white {
+    background-color: #1f2937 !important; /* gray-800 */
+  }
+}
+
+.dark .bg-gray-50 {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-gray-50 {
+    background-color: #1f2937 !important; /* gray-800 */
+  }
+}
+
+.dark .bg-gray-100 {
+  background-color: #374151 !important; /* gray-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-gray-100 {
+    background-color: #374151 !important; /* gray-700 */
+  }
+}
+
+.dark .bg-gray-200 {
+  background-color: #4b5563 !important; /* gray-600 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-gray-200 {
+    background-color: #4b5563 !important; /* gray-600 */
+  }
+}
+
+/* ========================================
+   TEXT COLORS - Dark Mode Overrides
+   ======================================== */
+
+/* Dark text becomes light text in dark mode */
+.dark .text-gray-900 {
+  color: #f3f4f6 !important; /* gray-100 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-900 {
+    color: #f3f4f6 !important; /* gray-100 */
+  }
+}
+
+.dark .text-gray-800 {
+  color: #e5e7eb !important; /* gray-200 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-800 {
+    color: #e5e7eb !important; /* gray-200 */
+  }
+}
+
+.dark .text-gray-700 {
+  color: #d1d5db !important; /* gray-300 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-700 {
+    color: #d1d5db !important; /* gray-300 */
+  }
+}
+
+.dark .text-gray-600 {
+  color: #9ca3af !important; /* gray-400 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-600 {
+    color: #9ca3af !important; /* gray-400 */
+  }
+}
+
+.dark .text-gray-500 {
+  color: #9ca3af !important; /* gray-400 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-500 {
+    color: #9ca3af !important; /* gray-400 */
+  }
+}
+
+.dark .text-gray-400 {
+  color: #6b7280 !important; /* gray-500 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-400 {
+    color: #6b7280 !important; /* gray-500 */
+  }
+}
+
+.dark .text-gray-300 {
+  color: #4b5563 !important; /* gray-600 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-300 {
+    color: #4b5563 !important; /* gray-600 */
+  }
+}
+
+.dark .text-gray-200 {
+  color: #374151 !important; /* gray-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-200 {
+    color: #374151 !important; /* gray-700 */
+  }
+}
+
+.dark .text-gray-100 {
+  color: #1f2937 !important; /* gray-800 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gray-100 {
+    color: #1f2937 !important; /* gray-800 */
+  }
+}
+
+/* ========================================
+   BORDER COLORS - Dark Mode Overrides
+   ======================================== */
+
+.dark .border-gray-200 {
+  border-color: #374151 !important; /* gray-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .border-gray-200 {
+    border-color: #374151 !important; /* gray-700 */
+  }
+}
+
+.dark .border-gray-300 {
+  border-color: #4b5563 !important; /* gray-600 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .border-gray-300 {
+    border-color: #4b5563 !important; /* gray-600 */
+  }
+}
+
+.dark .border-gray-400 {
+  border-color: #6b7280 !important; /* gray-500 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .border-gray-400 {
+    border-color: #6b7280 !important; /* gray-500 */
+  }
+}
+
+/* ========================================
+   SHADOWS - Dark Mode Overrides
+   ======================================== */
+
+.dark .shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5) !important;
+  }
+}
+
+.dark .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+  }
+}
+
+.dark .shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+  }
+}
+
+/* ========================================
+   INPUT FIELDS - Dark Mode Overrides
+   ======================================== */
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f3f4f6 !important; /* gray-100 */
+  border-color: #4b5563 !important; /* gray-600 */
+}
+
+@media (prefers-color-scheme: dark) {
+  input,
+  textarea,
+  select {
+    background-color: #374151 !important; /* gray-700 */
+    color: #f3f4f6 !important; /* gray-100 */
+    border-color: #4b5563 !important; /* gray-600 */
+  }
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #3b82f6 !important; /* blue-500 */
+}
+
+@media (prefers-color-scheme: dark) {
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+}
+
+/* ========================================
+   STATUS BADGES - Dark Mode Overrides
+   ======================================== */
+
+.dark .bg-green-50 {
+  background-color: #064e3b !important; /* green-900 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-green-50 {
+    background-color: #064e3b !important; /* green-900 */
+  }
+}
+
+.dark .bg-blue-50 {
+  background-color: #1e3a8a !important; /* blue-900 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-blue-50 {
+    background-color: #1e3a8a !important; /* blue-900 */
+  }
+}
+
+/* Blue text colors for dark mode */
+.dark .text-blue-900 {
+  color: #dbeafe !important; /* blue-100 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-blue-900 {
+    color: #dbeafe !important; /* blue-100 */
+  }
+}
+
+.dark .text-blue-800 {
+  color: #bfdbfe !important; /* blue-200 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-blue-800 {
+    color: #bfdbfe !important; /* blue-200 */
+  }
+}
+
+/* Blue borders for dark mode */
+.dark .border-blue-200 {
+  border-color: #1e40af !important; /* blue-800 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .border-blue-200 {
+    border-color: #1e40af !important; /* blue-800 */
+  }
+}
+
+.dark .border-blue-700 {
+  border-color: #1e40af !important; /* blue-800 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .border-blue-700 {
+    border-color: #1e40af !important; /* blue-800 */
+  }
+}
+
+.dark .bg-yellow-50 {
+  background-color: #78350f !important; /* yellow-900 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-yellow-50 {
+    background-color: #78350f !important; /* yellow-900 */
+  }
+}
+
+.dark .bg-red-50 {
+  background-color: #7f1d1d !important; /* red-900 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-red-50 {
+    background-color: #7f1d1d !important; /* red-900 */
+  }
+}
+
+.dark .bg-purple-50 {
+  background-color: #581c87 !important; /* purple-900 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-purple-50 {
+    background-color: #581c87 !important; /* purple-900 */
+  }
+}
+
+.dark .bg-orange-50 {
+  background-color: #7c2d12 !important; /* orange-900 */
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-orange-50 {
+    background-color: #7c2d12 !important; /* orange-900 */
+  }
+}
+
+/* ========================================
+   TABLES - Dark Mode Overrides
+   ======================================== */
+
+.dark table {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+
+@media (prefers-color-scheme: dark) {
+  table {
+    background-color: #1f2937 !important; /* gray-800 */
+  }
+}
+
+.dark thead {
+  background-color: #374151 !important; /* gray-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+  thead {
+    background-color: #374151 !important; /* gray-700 */
+  }
+}
+
+.dark tbody tr {
+  background-color: #1f2937 !important; /* gray-800 */
+  border-color: #374151 !important; /* gray-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+  tbody tr {
+    background-color: #1f2937 !important; /* gray-800 */
+    border-color: #374151 !important; /* gray-700 */
+  }
+}
+
+.dark tbody tr:hover {
+  background-color: #374151 !important; /* gray-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+  tbody tr:hover {
+    background-color: #374151 !important; /* gray-700 */
+  }
+}
+
+/* ========================================
+   MODALS - Dark Mode Overrides
+   ======================================== */
+
+.dark .modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+  }
+}
+
+/* ========================================
+   CODE BLOCKS - Dark Mode Overrides
+   ======================================== */
+
+.dark code {
+  background-color: #374151 !important; /* gray-700 */
+  color: #f3f4f6 !important; /* gray-100 */
+}
+
+@media (prefers-color-scheme: dark) {
+  code {
+    background-color: #374151 !important; /* gray-700 */
+    color: #f3f4f6 !important; /* gray-100 */
+  }
+}
+
+/* ========================================
+   BUTTONS - Dark Mode Overrides
+   ======================================== */
+
+.dark button {
+  color: #f3f4f6 !important; /* gray-100 */
+}
+
+@media (prefers-color-scheme: dark) {
+  button {
+    color: #f3f4f6 !important; /* gray-100 */
+  }
+}
+
+.dark button:hover {
+  opacity: 0.9;
+}
+
+@media (prefers-color-scheme: dark) {
+  button:hover {
+    opacity: 0.9;
+  }
+}
+
+/* ========================================
+   LINKS - Dark Mode Overrides
+   ======================================== */
+
+.dark a {
+  color: #60a5fa !important; /* blue-400 */
+}
+
+@media (prefers-color-scheme: dark) {
+  a {
+    color: #60a5fa !important; /* blue-400 */
+  }
+}
+
+.dark a:hover {
+  color: #93c5fd !important; /* blue-300 */
+}
+
+@media (prefers-color-scheme: dark) {
+  a:hover {
+    color: #93c5fd !important; /* blue-300 */
+  }
+}
+
+/* ========================================
+   DIVIDERS - Dark Mode Overrides
+   ======================================== */
+
+.dark hr {
+  border-color: #374151 !important; /* gray-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+  hr {
+    border-color: #374151 !important; /* gray-700 */
+  }
+}
+
+/* ========================================
+   SCROLLBARS - Dark Mode Overrides
+   ======================================== */
+
+.dark ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937; /* gray-800 */
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-track {
+    background: #1f2937; /* gray-800 */
+  }
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563; /* gray-600 */
+  border-radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: #4b5563; /* gray-600 */
+    border-radius: 6px;
+  }
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* gray-500 */
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280; /* gray-500 */
+  }
+}

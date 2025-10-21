@@ -26,6 +26,10 @@ class MachineCreate(BaseModel):
                              pattern=r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$",
                              description="MAC address (XX:XX:XX:XX:XX:XX)")
     ip_address: str | None = Field(None, description="IP address (optional)")
+    image_id: str | None = Field(None, description="Image ID to assign")
+    is_virtual: bool = Field(False, description="Is this a virtual machine?")
+    vnc_enabled: bool = Field(False, description="Enable VNC access")
+    vnc_port: int | None = Field(None, description="VNC port (default: 5900 + machine_id)")
 
 
 class MachineResponse(BaseModel):
@@ -36,9 +40,14 @@ class MachineResponse(BaseModel):
     ip_address: str | None
     status: str
     image_name: str | None
+    image_id: str | None
     writeback_size: int
     keep_writeback: bool
     last_boot: str | None
+    is_virtual: bool = False
+    vnc_enabled: bool = False
+    vnc_port: int | None = None
+    vnc_password: str | None = None
 
     class Config:
         from_attributes = True
@@ -100,7 +109,8 @@ async def create_machine(
         name=machine_data.name,
         mac_address=mac,
         ip_address=machine_data.ip_address,
-        status="offline"
+        status="offline",
+        image_name=machine_data.image_id  # Store image_id as image_name for now
     )
 
     db.add(machine)
@@ -108,6 +118,12 @@ async def create_machine(
     try:
         await db.commit()
         await db.refresh(machine)
+        
+        # If virtual machine, setup VNC
+        if machine_data.is_virtual and machine_data.vnc_enabled:
+            # TODO: Start VNC server for virtual machine
+            pass
+        
     except IntegrityError:
         await db.rollback()
         raise HTTPException(
@@ -122,9 +138,48 @@ async def create_machine(
         "ip_address": machine.ip_address,
         "status": machine.status,
         "image_name": machine.image_name,
+        "image_id": machine.image_name,  # For now, same as image_name
         "writeback_size": machine.writeback_size,
         "keep_writeback": machine.keep_writeback,
-        "last_boot": machine.last_boot.isoformat() if machine.last_boot else None}
+        "last_boot": machine.last_boot.isoformat() if machine.last_boot else None,
+        "is_virtual": machine_data.is_virtual,
+        "vnc_enabled": machine_data.vnc_enabled,
+        "vnc_port": machine_data.vnc_port or (5900 + machine.id) if machine_data.vnc_enabled else None
+    }
+
+
+@router.post("/machines/{machine_id}/vnc/connect")
+async def connect_vnc(
+    machine_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get VNC connection info for virtual machine
+    
+    Returns VNC URL and credentials for connecting to the machine.
+    """
+    result = await db.execute(
+        select(Machine).where(Machine.id == machine_id)
+    )
+    machine = result.scalar_one_or_none()
+    
+    if not machine:
+        raise HTTPException(status_code=404, detail="Machine not found")
+    
+    # TODO: Implement VNC server management
+    # For now, return placeholder info
+    vnc_port = 5900 + machine_id
+    
+    return {
+        "machine_id": machine_id,
+        "machine_name": machine.name,
+        "vnc_host": "localhost",
+        "vnc_port": vnc_port,
+        "vnc_url": f"vnc://localhost:{vnc_port}",
+        "web_url": f"http://localhost:6080/vnc.html?host=localhost&port={vnc_port}",
+        "password": "ggnet123",  # TODO: Generate secure password
+        "status": "connected"
+    }
 
 
 @router.delete("/machines/{machine_id}", status_code=204)

@@ -37,12 +37,12 @@ export const MachineCard: React.FC<MachineCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{machine.name}</h3>
-          <p className="text-sm text-gray-500">{machine.mac_address}</p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-800">{machine.name}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">{machine.mac_address}</p>
         </div>
         <span
           className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -57,22 +57,22 @@ export const MachineCard: React.FC<MachineCardProps> = ({
       <div className="space-y-2 mb-4">
         {machine.ip_address && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">IP Address:</span>
-            <span className="text-gray-900 font-medium">{machine.ip_address}</span>
+            <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">IP Address:</span>
+            <span className="text-gray-900 dark:text-gray-100 dark:text-gray-800 font-medium">{machine.ip_address}</span>
           </div>
         )}
 
         {machine.image_name && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Image:</span>
-            <span className="text-gray-900 font-medium">{machine.image_name}</span>
+            <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Image:</span>
+            <span className="text-gray-900 dark:text-gray-100 dark:text-gray-800 font-medium">{machine.image_name}</span>
           </div>
         )}
 
         {machine.writeback_size > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Writeback:</span>
-            <span className="text-gray-900 font-medium">
+            <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Writeback:</span>
+            <span className="text-gray-900 dark:text-gray-100 dark:text-gray-800 font-medium">
               {(machine.writeback_size / 1024 / 1024).toFixed(2)} MB
             </span>
           </div>
@@ -80,8 +80,8 @@ export const MachineCard: React.FC<MachineCardProps> = ({
 
         {machine.last_boot && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Last Boot:</span>
-            <span className="text-gray-900 font-medium">
+            <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Last Boot:</span>
+            <span className="text-gray-900 dark:text-gray-100 dark:text-gray-800 font-medium">
               {new Date(machine.last_boot).toLocaleString()}
             </span>
           </div>
@@ -89,7 +89,7 @@ export const MachineCard: React.FC<MachineCardProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-4 border-t border-gray-200">
+      <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
         {machine.status === 'offline' && onPowerOn && (
           <button
             onClick={() => onPowerOn(machine.id)}

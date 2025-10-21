@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: ['class', '@media (prefers-color-scheme: dark)'], // Support both class and prefers-color-scheme
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

@@ -11,38 +11,60 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import pytest
-from httpx import AsyncClient
+import asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 
 from main import app
-from db.base import init_db, async_session_maker
-from db.models import Machine, Image
+from db.base import init_db
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def test_db():
-    """Initialize test database session-wide"""
-    await init_db()
-    yield
-    # Cleanup handled by test database
-
-
-@pytest.fixture
-def client():
-    """Test client for FastAPI with initialized database"""
-    # Ensure database is initialized before creating client
-    import asyncio
+def init_test_db():
+    """Initialize test database once before all tests"""
+    # Create event loop
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     
-    # Run init_db if not already done
-    if async_session_maker is None:
-        loop.run_until_complete(init_db())
+    # Run init_db synchronously
+    loop.run_until_complete(init_db())
     
+    yield
+    
+    # Cleanup
+    loop.close()
+
+
+@pytest.fixture(autouse=True)
+def cleanup_db():
+    """Clean up database after each test"""
+    yield
+    # Clean up database after each test
+    from db.base import async_session_maker
+    from db.models import Machine
+    from sqlalchemy import text
+    
+    async def cleanup():
+        async with async_session_maker() as session:
+            # Delete all machines
+            await session.execute(text("DELETE FROM machines"))
+            await session.commit()
+    
+    # Run cleanup synchronously
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    loop.run_until_complete(cleanup())
+
+
+@pytest.fixture
+def client():
+    """Test client for FastAPI"""
     return TestClient(app)
 
 
@@ -59,8 +81,6 @@ def test_health_check(client):
     """Test health check endpoint"""
     response = client.get("/health")
     assert response.status_code == 200
-    # Note: This might fail if backend isn't fully initialized
-    # In that case, it's expected
 
 
 def test_api_status(client):
@@ -236,14 +256,21 @@ def test_system_metrics(client):
     assert response.status_code == 200
     data = response.json()
     
-    # Verify structure
-    assert "cache" in data
-    assert "array" in data
-    assert "system" in data
+    # Verify structure (response is flattened in system.py)
+    assert "total_machines" in data
+    assert "online_machines" in data
+    assert "offline_machines" in data
+    assert "active_sessions" in data
+    assert "cpu_usage_avg" in data
+    assert "ram_usage_avg" in data
+    assert "disk_usage_percent" in data
+    assert "cache_hit_rate" in data
     
-    # Verify system metrics
-    assert 0 <= data["system"]["cpu_percent"] <= 100
-    assert 0 <= data["system"]["memory_percent"] <= 100
+    # Verify values are reasonable
+    assert 0 <= data["cpu_usage_avg"] <= 100
+    assert 0 <= data["ram_usage_avg"] <= 100
+    assert 0 <= data["disk_usage_percent"] <= 100
+    assert 0 <= data["cache_hit_rate"] <= 100
 
 
 def test_system_logs(client):
@@ -254,4 +281,3 @@ def test_system_logs(client):
     
     assert "logs" in data
     assert isinstance(data["logs"], list)
-

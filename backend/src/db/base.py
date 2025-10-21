@@ -35,7 +35,7 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    print(f"✅ Database initialized: {settings.DATABASE_URL}")
+    print(f"[OK] Database initialized: {settings.DATABASE_URL}")
 
 
 async def close_db():
@@ -43,7 +43,7 @@ async def close_db():
     global engine
     if engine:
         await engine.dispose()
-        print("✅ Database connection closed")
+        print("[OK] Database connection closed")
 
 
 async def get_db():
@@ -56,6 +56,9 @@ async def get_db():
             result = await db.execute(select(Machine))
             return result.scalars().all()
     """
+    if async_session_maker is None:
+        raise RuntimeError("Database not initialized. Call init_db() first.")
+    
     async with async_session_maker() as session:
         try:
             yield session

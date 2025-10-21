@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getImages, createImage, deleteImage, ImageCreate } from '../services/api';
+import { getImages, createImage, deleteImage, ImageCreate, uploadImage } from '../services/api';
 import { Upload, Plus, Trash2, Camera } from 'lucide-react';
 
 const Images = () => {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
   const [newImage, setNewImage] = useState<ImageCreate>({
     name: '',
     type: 'os',
     description: '',
   });
+  const [imageSize, setImageSize] = useState({ value: '', unit: 'GB' });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [filter, setFilter] = useState<'all' | 'os' | 'game'>('all');
 
   const queryClient = useQueryClient();
@@ -28,7 +31,8 @@ const Images = () => {
       queryClient.invalidateQueries({ queryKey: ['images'] });
       setShowAddForm(false);
       setNewImage({ name: '', type: 'os', description: '' });
-      alert('Image created successfully! You can now upload the disk image to the storage array.');
+      setImageSize({ value: '', unit: 'GB' });
+      alert(`Image created successfully! Size: ${imageSize.value} ${imageSize.unit}. You can now upload the disk image to the storage array.`);
     },
     onError: (error: Error) => {
       alert(`Failed to create image: ${error.message}`);
@@ -47,6 +51,20 @@ const Images = () => {
     },
   });
 
+  // Upload image mutation
+  const uploadMutation = useMutation({
+    mutationFn: uploadImage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['images'] });
+      setShowUploadForm(false);
+      setUploadFile(null);
+      alert('Image uploaded successfully!');
+    },
+    onError: (error: Error) => {
+      alert(`Failed to upload image: ${error.message}`);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newImage.name) {
@@ -56,13 +74,33 @@ const Images = () => {
     createMutation.mutate(newImage);
   };
 
-  const handleDelete = (id: number, name: string) => {
+  const handleDelete = (id: string, name: string) => {
     if (
       window.confirm(
         `Delete image "${name}"? This will remove the image from all machines. This cannot be undone.`
       )
     ) {
       deleteMutation.mutate(id);
+    }
+  };
+
+  const handleUpload = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile || !newImage.name) {
+      alert('Please select a file and enter image name!');
+      return;
+    }
+    uploadMutation.mutate({
+      file: uploadFile,
+      name: newImage.name,
+      type: newImage.type,
+      description: newImage.description || undefined,
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadFile(e.target.files[0]);
     }
   };
 
@@ -90,18 +128,27 @@ const Images = () => {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Disk Images</h1>
-          <p className="text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-800">Disk Images</h1>
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
             Manage OS and game images ({images?.length || 0} total)
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={20} />
-          Create Image
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowUploadForm(!showUploadForm)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Upload size={20} />
+            Upload Image
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={20} />
+            Create Image
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -138,28 +185,28 @@ const Images = () => {
         </button>
       </div>
 
-      {/* Add Image Form */}
-      {showAddForm && (
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-500">
-          <h2 className="text-xl font-bold mb-4">Create New Image</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Upload Image Form */}
+      {showUploadForm && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border-2 border-green-500">
+          <h2 className="text-xl font-bold mb-4">Upload Image File</h2>
+          <form onSubmit={handleUpload} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
                   Image Name *
                 </label>
                 <input
                   type="text"
                   value={newImage.name}
                   onChange={(e) => setNewImage({ ...newImage, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., Ubuntu-22.04-LTS"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Windows-10-Pro"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
                   Type *
                 </label>
                 <select
@@ -167,7 +214,96 @@ const Images = () => {
                   onChange={(e) =>
                     setNewImage({ ...newImage, type: e.target.value as 'os' | 'game' })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                >
+                  <option value="os">Operating System</option>
+                  <option value="game">Game Image</option>
+                  <option value="windows">Windows OS</option>
+                  <option value="linux">Linux OS</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
+                Description
+              </label>
+              <textarea
+                value={newImage.description}
+                onChange={(e) => setNewImage({ ...newImage, description: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                rows={2}
+                placeholder="Image description..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
+                Image File * (VHD, VHDX, ISO, IMG)
+              </label>
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                accept=".vhd,.vhdx,.iso,.img,.raw"
+                required
+              />
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                Supported formats: VHD, VHDX, ISO, IMG, RAW
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={uploadMutation.isPending}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {uploadMutation.isPending ? 'Uploading...' : 'Upload Image'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowUploadForm(false)}
+                className="px-6 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Add Image Form */}
+      {showAddForm && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-500">
+          <h2 className="text-xl font-bold mb-4">Create New Image</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
+                  Image Name *
+                </label>
+                <input
+                  type="text"
+                  value={newImage.name}
+                  onChange={(e) => setNewImage({ ...newImage, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Ubuntu-22.04-LTS"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
+                  Type *
+                </label>
+                <select
+                  value={newImage.type}
+                  onChange={(e) =>
+                    setNewImage({ ...newImage, type: e.target.value as 'os' | 'game' })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="os">Operating System</option>
@@ -177,16 +313,45 @@ const Images = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
                 Description (Optional)
               </label>
               <textarea
                 value={newImage.description || ''}
                 onChange={(e) => setNewImage({ ...newImage, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Ubuntu 22.04 LTS with NVIDIA drivers"
                 rows={3}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
+                Image Size (GB/TB) *
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={imageSize.value}
+                  onChange={(e) => setImageSize({ ...imageSize, value: e.target.value })}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., 100"
+                  min="1"
+                  step="0.1"
+                  required
+                />
+                <select
+                  value={imageSize.unit}
+                  onChange={(e) => setImageSize({ ...imageSize, unit: e.target.value })}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="GB">GB</option>
+                  <option value="TB">TB</option>
+                </select>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                Recommended: {newImage.type === 'os' ? '50-100 GB' : '200-500 GB'} for {newImage.type === 'os' ? 'OS images' : 'Game images'}
+              </p>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -207,7 +372,7 @@ const Images = () => {
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                className="px-6 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 Cancel
               </button>
@@ -221,14 +386,14 @@ const Images = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {images.map((image) => (
             <div
-              key={image.id}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6"
+              key={image.image_id}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow p-6"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{image.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1 truncate" title={image.path}>
-                    {image.path}
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-800">{image.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1 truncate" title={image.storage_path || image.image_id}>
+                    {image.storage_path || image.image_id}
                   </p>
                 </div>
                 <span
@@ -244,24 +409,24 @@ const Images = () => {
 
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Size:</span>
+                  <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Size:</span>
                   <span className="font-medium">{formatBytes(image.size_bytes)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Created:</span>
+                  <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Created:</span>
                   <span className="font-medium">
-                    {new Date(image.created_at).toLocaleDateString()}
+                    {new Date(image.creation_date).toLocaleDateString()}
                   </span>
                 </div>
-                {image.active_snapshot_id && (
+                {image.base_snapshot_id && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Active Snapshot:</span>
-                    <span className="font-medium">#{image.active_snapshot_id}</span>
+                    <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Base Snapshot:</span>
+                    <span className="font-medium">{image.base_snapshot_id}</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-2 pt-4 border-t border-gray-200">
+              <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center justify-center gap-1"
                   title="Create snapshot"
@@ -270,7 +435,7 @@ const Images = () => {
                   Snapshot
                 </button>
                 <button
-                  onClick={() => handleDelete(image.id, image.name)}
+                  onClick={() => handleDelete(image.image_id, image.name)}
                   className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 flex items-center justify-center gap-1"
                   title="Delete image"
                 >
@@ -282,9 +447,9 @@ const Images = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p className="text-gray-600 mb-4">No images uploaded yet</p>
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+          <Upload className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+          <p className="text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-4">No images uploaded yet</p>
           <button
             onClick={() => setShowAddForm(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

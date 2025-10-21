@@ -43,15 +43,24 @@ export interface Machine {
   ip_address?: string;
   status: string;
   image_name?: string;
+  image_id?: string;
   writeback_size: number;
   keep_writeback: boolean;
   last_boot?: string;
+  is_virtual?: boolean;
+  vnc_enabled?: boolean;
+  vnc_port?: number;
+  vnc_password?: string;
 }
 
 export interface MachineCreate {
   name: string;
   mac_address: string;
   ip_address?: string;
+  image_id?: string;
+  is_virtual?: boolean;
+  vnc_enabled?: boolean;
+  vnc_port?: number;
 }
 
 export async function getMachines(): Promise<Machine[]> {
@@ -110,14 +119,17 @@ export async function applyWriteback(
 //=============================================================================
 
 export interface Image {
-  id: number;
+  image_id: string;
   name: string;
-  path: string;
-  type: 'os' | 'game';
+  type: string;
+  version: number;
   size_bytes: number;
-  active_snapshot_id?: number;
-  created_at: string;
-  updated_at: string;
+  status: string;
+  is_default: boolean;
+  creation_date: string;
+  storage_path?: string;
+  description?: string;
+  base_snapshot_id?: string;
 }
 
 export interface ImageCreate {
@@ -138,10 +150,39 @@ export async function createImage(data: ImageCreate): Promise<Image> {
   });
 }
 
-export async function deleteImage(id: number): Promise<void> {
+export async function deleteImage(id: string): Promise<void> {
   await request(`/images/${id}`, {
     method: 'DELETE',
   });
+}
+
+export async function uploadImage(data: {
+  file: File;
+  name: string;
+  type: string;
+  description?: string;
+}): Promise<{ success: boolean; message: string; image_id: string; file_size: number }> {
+  const formData = new FormData();
+  formData.append('file', data.file);
+  formData.append('name', data.name);
+  formData.append('type', data.type);
+  if (data.description) {
+    formData.append('description', data.description);
+  }
+
+  const response = await fetch(`${API_BASE}/images/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({
+      detail: `HTTP Error ${response.status}`,
+    }));
+    throw new Error(error.detail || `Upload failed: ${response.statusText}`);
+  }
+
+  return response.json();
 }
 
 //=============================================================================
@@ -149,16 +190,17 @@ export async function deleteImage(id: number): Promise<void> {
 //=============================================================================
 
 export interface Snapshot {
-  id: number;
-  image_id: number;
+  snapshot_id: string;
+  image_id: string;
   created_by?: string;
   created_at: string;
   comment?: string;
   path: string;
+  name?: string;
 }
 
 export interface SnapshotCreate {
-  image_id: number;
+  image_id: string;
   comment?: string;
   created_by?: string;
 }
@@ -174,7 +216,7 @@ export async function createSnapshot(data: SnapshotCreate): Promise<Snapshot> {
   });
 }
 
-export async function deleteSnapshot(id: number): Promise<void> {
+export async function deleteSnapshot(id: string): Promise<void> {
   await request(`/snapshots/${id}`, {
     method: 'DELETE',
   });

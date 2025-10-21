@@ -21,12 +21,12 @@ const Network = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Network Configuration</h1>
-        <p className="text-gray-500 mt-1">Configure DHCP, TFTP, NFS, and PXE boot settings</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-800">Network Configuration</h1>
+        <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Configure DHCP, TFTP, NFS, and PXE boot settings</p>
       </div>
 
       {/* PXE Boot Status */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">PXE Boot Status</h2>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -60,14 +60,14 @@ const Network = () => {
       </div>
 
       {/* DHCP Configuration */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <NetworkIcon size={24} />
           DHCP Configuration
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
               DHCP Range Start
             </label>
             <input
@@ -76,13 +76,13 @@ const Network = () => {
               onChange={(e) =>
                 setNetworkConfig({ ...networkConfig, dhcp_range_start: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="192.168.1.100"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
               DHCP Range End
             </label>
             <input
@@ -91,39 +91,39 @@ const Network = () => {
               onChange={(e) =>
                 setNetworkConfig({ ...networkConfig, dhcp_range_end: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="192.168.1.200"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Subnet Mask</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">Subnet Mask</label>
             <input
               type="text"
               value={networkConfig.subnet_mask}
               onChange={(e) =>
                 setNetworkConfig({ ...networkConfig, subnet_mask: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="255.255.255.0"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Gateway</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">Gateway</label>
             <input
               type="text"
               value={networkConfig.gateway}
               onChange={(e) =>
                 setNetworkConfig({ ...networkConfig, gateway: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="192.168.1.1"
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
               DNS Servers (comma-separated)
             </label>
             <input
@@ -132,7 +132,7 @@ const Network = () => {
               onChange={(e) =>
                 setNetworkConfig({ ...networkConfig, dns_servers: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="8.8.8.8, 8.8.4.4"
             />
           </div>
@@ -140,14 +140,14 @@ const Network = () => {
       </div>
 
       {/* Boot Servers */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <Server size={24} />
           Boot Servers
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
               TFTP Server IP
             </label>
             <input
@@ -156,16 +156,16 @@ const Network = () => {
               onChange={(e) =>
                 setNetworkConfig({ ...networkConfig, tftp_server: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="192.168.1.10"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
               TFTP server for iPXE boot scripts
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
               NFS Server IP
             </label>
             <input
@@ -174,10 +174,10 @@ const Network = () => {
               onChange={(e) =>
                 setNetworkConfig({ ...networkConfig, nfs_server: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="192.168.1.10"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
               NFS server for disk images and writebacks
             </p>
           </div>
@@ -185,36 +185,36 @@ const Network = () => {
       </div>
 
       {/* Configuration Files */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <Settings size={24} />
           Configuration Files
         </h2>
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div>
               <p className="font-medium">DHCP Configuration</p>
-              <p className="text-sm text-gray-500">/etc/dhcp/dhcpd.conf</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">/etc/dhcp/dhcpd.conf</p>
             </div>
             <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
               Generate
             </button>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div>
               <p className="font-medium">TFTP Configuration</p>
-              <p className="text-sm text-gray-500">/srv/ggnet/pxe/tftp/</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">/srv/ggnet/pxe/tftp/</p>
             </div>
             <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
               View Files
             </button>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div>
               <p className="font-medium">NFS Exports</p>
-              <p className="text-sm text-gray-500">/etc/exports</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">/etc/exports</p>
             </div>
             <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
               Generate
