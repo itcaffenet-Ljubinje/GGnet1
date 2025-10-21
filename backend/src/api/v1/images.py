@@ -69,7 +69,7 @@ async def list_images(
     return images
 
 
-@router.post("/", response_model=ImageResponse)
+@router.post("/", response_model=ImageResponse, status_code=201)
 async def create_image(
     image_data: ImageCreate,
     db: AsyncSession = Depends(get_db)
