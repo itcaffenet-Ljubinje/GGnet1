@@ -48,6 +48,7 @@ class MachineResponse(BaseModel):
     vnc_enabled: bool = False
     vnc_port: int | None = None
     vnc_password: str | None = None
+    description: str = ""  # Optional description field
 
     class Config:
         from_attributes = True
