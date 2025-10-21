@@ -1,267 +1,175 @@
 """
-Network API Endpoints
+Network Configuration API Endpoints
 
-Manage DHCP, PXE boot, and network configuration.
+Manage network settings for ggNet server.
 """
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
-
-from core.services import get_services_manager
+from typing import List
+import subprocess
+import re
 
 router = APIRouter(prefix="/network", tags=["network"])
 
 
 # Schemas
+class NetworkInterface(BaseModel):
+    name: str
+    ip_address: str | None = None
+    netmask: str | None = None
+    gateway: str | None = None
+    dns: List[str] = []
+    dhcp: bool = True
+    status: str = "down"
+
+
 class NetworkConfig(BaseModel):
-    server_ip: str
-    dhcp_start: str
-    dhcp_end: str
-    subnet_mask: str
-    gateway: str
-    dns_servers: list[str]
+    interfaces: List[NetworkInterface]
+    hostname: str
+    domain: str | None = None
 
 
-class DHCPReservation(BaseModel):
-    mac_address: str
-    ip_address: str
-    hostname: Optional[str] = None
+class NetworkConfigUpdate(BaseModel):
+    interface: str
+    ip_address: str | None = None
+    netmask: str | None = None
+    gateway: str | None = None
+    dns: List[str] | None = None
+    dhcp: bool = True
 
 
 # Endpoints
-@router.get("/config")
+@router.get("/config", response_model=NetworkConfig)
 async def get_network_config():
     """Get current network configuration"""
-    # TODO: Read from actual network configuration files
-    return {
-        "server_ip": "192.168.1.1",
-        "dhcp_start": "192.168.1.100",
-        "dhcp_end": "192.168.1.200",
-        "subnet_mask": "255.255.255.0",
-        "gateway": "192.168.1.1",
-        "dns_servers": ["8.8.8.8", "8.8.4.4"]
-    }
+    
+    interfaces = []
+    
+    try:
+        # Get hostname
+        result = subprocess.run(['hostname'], capture_output=True, text=True)
+        hostname = result.stdout.strip()
+        
+        # Get network interfaces using ip command
+        result = subprocess.run(['ip', '-br', 'addr'], capture_output=True, text=True)
+        lines = result.stdout.strip().split('\n')
+        
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 3:
+                iface_name = parts[0]
+                status = parts[1]
+                ip_info = parts[2] if len(parts) > 2 else None
+                
+                # Skip loopback
+                if iface_name == 'lo':
+                    continue
+                
+                # Parse IP address
+                ip_address = None
+                if ip_info and '/' in ip_info:
+                    ip_address = ip_info.split('/')[0]
+                
+                interfaces.append(NetworkInterface(
+                    name=iface_name,
+                    ip_address=ip_address,
+                    status=status,
+                    dhcp=True  # Detect DHCP from /etc/network/interfaces or NetworkManager
+                ))
+        
+        return NetworkConfig(
+            interfaces=interfaces,
+            hostname=hostname
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get network config: {str(e)}")
 
 
-@router.put("/config")
-async def update_network_config(config: NetworkConfig):
+@router.post("/config")
+async def update_network_config(config: NetworkConfigUpdate):
     """
     Update network configuration
-
-    TODO: Update dnsmasq or ISC DHCP configuration
-    TODO: Reload network services
+    
+    WARNING: This modifies system network settings!
+    Requires root permissions or sudo.
     """
+    
+    # TODO: Implement actual network configuration
+    # This requires:
+    # 1. Writing to /etc/network/interfaces (Debian) or /etc/netplan/ (Ubuntu)
+    # 2. Restarting networking service
+    # 3. Proper error handling for network changes
+    
+    # For now, return success (mock)
     return {
         "success": True,
-        "message": "Network configuration updated"
+        "message": f"Network configuration for {config.interface} would be updated",
+        "config": config.dict(),
+        "warning": "Network configuration changes require manual intervention for safety"
     }
 
 
-@router.get("/dhcp/leases")
-async def get_dhcp_leases():
-    """Get active DHCP leases"""
-    services_manager = get_services_manager()
+@router.get("/interfaces")
+async def list_interfaces():
+    """List all network interfaces"""
     
-    if not services_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="Services manager not initialized"
-        )
-    
-    dhcp_server = services_manager.get_dhcp_server()
-    
-    if not dhcp_server:
-        raise HTTPException(
-            status_code=503,
-            detail="DHCP server not initialized"
-        )
-    
-    leases = await dhcp_server.get_leases()
-    
-    return {
-        "leases": leases,
-        "total": len(leases)
-    }
-
-
-@router.post("/dhcp/reservations")
-async def add_dhcp_reservation(reservation: DHCPReservation):
-    """Add static DHCP reservation"""
-    services_manager = get_services_manager()
-    
-    if not services_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="Services manager not initialized"
-        )
-    
-    dhcp_server = services_manager.get_dhcp_server()
-    
-    if not dhcp_server:
-        raise HTTPException(
-            status_code=503,
-            detail="DHCP server not initialized"
-        )
-    
-    await dhcp_server.add_reservation(
-        reservation.mac_address,
-        reservation.ip_address,
-        reservation.hostname
-    )
-    
-    return {
-        "success": True,
-        "message": "DHCP reservation added"
-    }
-
-
-@router.delete("/dhcp/reservations/{mac_address}")
-async def remove_dhcp_reservation(mac_address: str):
-    """Remove static DHCP reservation"""
-    services_manager = get_services_manager()
-    
-    if not services_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="Services manager not initialized"
-        )
-    
-    dhcp_server = services_manager.get_dhcp_server()
-    
-    if not dhcp_server:
-        raise HTTPException(
-            status_code=503,
-            detail="DHCP server not initialized"
-        )
-    
-    await dhcp_server.remove_reservation(mac_address)
-    
-    return {
-        "success": True,
-        "message": "DHCP reservation removed"
-    }
-
-
-@router.get("/services/status")
-async def get_services_status():
-    """Get status of network services"""
     try:
-        services_manager = get_services_manager()
+        result = subprocess.run(['ip', 'link', 'show'], capture_output=True, text=True)
         
-        if not services_manager:
-            return {
-                "dhcp": {"initialized": False, "running": False, "status": "not_initialized"},
-                "tftp": {"initialized": False, "running": False, "status": "not_initialized"},
-                "nfs": {"initialized": False, "running": False, "status": "not_initialized"},
-                "pxe": {"initialized": False, "running": False, "status": "not_initialized"}
-            }
+        interfaces = []
+        for line in result.stdout.split('\n'):
+            # Match interface lines like: "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>"
+            match = re.match(r'^\d+:\s+(\w+):', line)
+            if match:
+                iface_name = match.group(1)
+                if iface_name != 'lo':  # Skip loopback
+                    interfaces.append({
+                        "name": iface_name,
+                        "state": "UP" if "UP" in line else "DOWN"
+                    })
         
-        return services_manager.get_status()
+        return {"interfaces": interfaces}
+        
     except Exception as e:
-        return {
-            "dhcp": {"initialized": False, "running": False, "status": "error", "error": str(e)},
-            "tftp": {"initialized": False, "running": False, "status": "error", "error": str(e)},
-            "nfs": {"initialized": False, "running": False, "status": "error", "error": str(e)},
-            "pxe": {"initialized": False, "running": False, "status": "error", "error": str(e)}
-        }
+        raise HTTPException(status_code=500, detail=f"Failed to list interfaces: {str(e)}")
 
 
-@router.post("/services/dhcp/restart")
-async def restart_dhcp_server():
-    """Restart DHCP server"""
-    services_manager = get_services_manager()
+@router.get("/dns")
+async def get_dns_servers():
+    """Get DNS server configuration"""
     
-    if not services_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="Services manager not initialized"
-        )
-    
-    dhcp_server = services_manager.get_dhcp_server()
-    
-    if not dhcp_server:
-        raise HTTPException(
-            status_code=503,
-            detail="DHCP server not initialized"
-        )
-    
-    await dhcp_server.restart()
-    
-    return {
-        "success": True,
-        "message": "DHCP server restarted"
-    }
+    try:
+        dns_servers = []
+        
+        # Read /etc/resolv.conf
+        with open('/etc/resolv.conf', 'r') as f:
+            for line in f:
+                if line.strip().startswith('nameserver'):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        dns_servers.append(parts[1])
+        
+        return {"dns_servers": dns_servers}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get DNS servers: {str(e)}")
 
 
-@router.post("/services/tftp/restart")
-async def restart_tftp_server():
-    """Restart TFTP server"""
-    services_manager = get_services_manager()
+@router.get("/routes")
+async def get_routes():
+    """Get routing table"""
     
-    if not services_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="Services manager not initialized"
-        )
-    
-    tftp_server = services_manager.get_tftp_server()
-    
-    if not tftp_server:
-        raise HTTPException(
-            status_code=503,
-            detail="TFTP server not initialized"
-        )
-    
-    await tftp_server.restart()
-    
-    return {
-        "success": True,
-        "message": "TFTP server restarted"
-    }
-
-
-@router.post("/services/nfs/restart")
-async def restart_nfs_server():
-    """Restart NFS server"""
-    services_manager = get_services_manager()
-    
-    if not services_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="Services manager not initialized"
-        )
-    
-    nfs_server = services_manager.get_nfs_server()
-    
-    if not nfs_server:
-        raise HTTPException(
-            status_code=503,
-            detail="NFS server not initialized"
-        )
-    
-    await nfs_server.restart()
-    
-    return {
-        "success": True,
-        "message": "NFS server restarted"
-    }
-
-
-@router.post("/services/restart-all")
-async def restart_all_services():
-    """Restart all network services"""
-    services_manager = get_services_manager()
-    
-    if not services_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="Services manager not initialized"
-        )
-    
-    await services_manager.restart_all()
-    
-    return {
-        "success": True,
-        "message": "All network services restarted"
-    }
+    try:
+        result = subprocess.run(['ip', 'route'], capture_output=True, text=True)
+        
+        routes = []
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                routes.append({"route": line})
+        
+        return {"routes": routes}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get routes: {str(e)}")
