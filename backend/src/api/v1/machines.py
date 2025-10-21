@@ -82,9 +82,13 @@ async def list_machines(db: AsyncSession = Depends(get_db)):
             "ip_address": m.ip_address,
             "status": m.status,
             "image_name": m.image_name,
+            "image_id": m.image_name,  # For compatibility (image_name stores image_id)
             "writeback_size": m.writeback_size,
             "keep_writeback": m.keep_writeback,
-            "last_boot": m.last_boot.isoformat() if m.last_boot else None
+            "last_boot": m.last_boot.isoformat() if m.last_boot else None,
+            "is_virtual": False,
+            "vnc_enabled": False,
+            "vnc_port": None
         })
 
     return machine_list

@@ -159,8 +159,8 @@ class Snapshot(Base):
 
     snapshot_id = Column(String(36), primary_key=True, default=generate_id)
     name = Column(String(100), nullable=False)
-    source_writeback_id = Column(String(36), nullable=False)
-    source_client_id = Column(String(36), nullable=False)
+    source_writeback_id = Column(String(36), nullable=True)  # Can be None for manual snapshots
+    source_client_id = Column(String(36), nullable=True)     # Can be None for manual snapshots
     base_image_id = Column(String(36), ForeignKey("images.image_id"), nullable=False)
     description = Column(String(500), nullable=True)
     size_bytes = Column(Integer, default=0)
