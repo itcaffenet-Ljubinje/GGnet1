@@ -72,12 +72,24 @@ def mock_db():
 
 
 @pytest.fixture
+def client():
+    """
+    Create test client with REAL database (for E2E tests)
+    
+    This is the default client fixture used by E2E tests.
+    For mocked tests, use mock_client or storage_client.
+    """
+    from main import app
+    test_client = TestClient(app)
+    return test_client
+
+
+@pytest.fixture
 def mock_client(mock_db):
     """
     Create test client with mocked database for unit/integration tests
     
     Use this for tests that don't need real database.
-    E2E tests should define their own 'client' fixture with real DB.
     """
     from main import app
     from db.base import get_db

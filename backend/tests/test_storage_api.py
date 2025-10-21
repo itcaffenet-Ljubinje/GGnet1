@@ -123,7 +123,7 @@ class TestStorageAPI:
     """Test Storage API endpoints"""
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_get_array_status(self, mock_get_manager, storage_storage_client, mock_storage_manager):
+    def test_get_array_status(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test GET /api/v1/storage/array/status"""
         mock_get_manager.return_value = mock_storage_manager
         
