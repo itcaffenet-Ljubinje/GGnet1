@@ -71,7 +71,7 @@ async def list_snapshots(db: AsyncSession = Depends(get_db)):
         select(Snapshot).order_by(Snapshot.date_created.desc())
     )
     snapshots = result.scalars().all()
-    return snapshots
+    return [SnapshotResponse.from_orm(s) for s in snapshots]
 
 
 @router.post("/", response_model=SnapshotResponse, status_code=201)
@@ -151,7 +151,7 @@ async def create_snapshot(
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"Snapshot with name '{snapshot_data.name}' already exists")
 
-    return snapshot
+    return SnapshotResponse.from_orm(snapshot)
 
 
 @router.get("/{snapshot_id}", response_model=SnapshotResponse)
@@ -168,7 +168,7 @@ async def get_snapshot(
     if not snapshot:
         raise HTTPException(status_code=404, detail="Snapshot not found")
     
-    return snapshot
+    return SnapshotResponse.from_orm(snapshot)
 
 
 @router.delete("/{snapshot_id}")

@@ -66,10 +66,12 @@ async def list_writebacks(
     writebacks = result.scalars().all()
 
     # TODO: Calculate inactive_hours from last_activity
+    result_list = []
     for wb in writebacks:
         wb.inactive_hours = 0  # Placeholder
+        result_list.append(WritebackResponse.from_orm(wb))
 
-    return writebacks
+    return result_list
 
 
 @router.post("/", response_model=WritebackResponse, status_code=201)
@@ -95,7 +97,7 @@ async def create_writeback(
         raise HTTPException(status_code=400, detail="Writeback already exists for this client")
     
     writeback.inactive_hours = 0  # Placeholder
-    return writeback
+    return WritebackResponse.from_orm(writeback)
 
 
 @router.get("/{writeback_id}", response_model=WritebackResponse)
@@ -113,7 +115,7 @@ async def get_writeback(
         raise HTTPException(status_code=404, detail="Writeback not found")
     
     writeback.inactive_hours = 0  # Placeholder
-    return writeback
+    return WritebackResponse.from_orm(writeback)
 
 
 @router.delete("/{writeback_id}")

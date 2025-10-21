@@ -78,7 +78,7 @@ async def list_images(
         result = await db.execute(query.order_by(Image.creation_date.desc()))
         images = result.scalars().all()
 
-        return images
+        return [ImageResponse.from_orm(img) for img in images]
     except Exception as e:
         # Log the error for debugging
         import logging
@@ -125,7 +125,7 @@ async def create_image(
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"Image with name '{image_data.name}' already exists")
 
-    return image
+    return ImageResponse.from_orm(image)
 
 
 @router.get("/{image_id}", response_model=ImageResponse)
@@ -142,7 +142,7 @@ async def get_image(
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
     
-    return image
+    return ImageResponse.from_orm(image)
 
 
 @router.delete("/{image_id}")
@@ -202,7 +202,7 @@ async def update_image(
     await db.commit()
     await db.refresh(image)
     
-    return image
+    return ImageResponse.from_orm(image)
 
 
 @router.post("/upload")
