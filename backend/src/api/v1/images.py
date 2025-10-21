@@ -172,6 +172,26 @@ async def delete_image(
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
     
+    # Delete related snapshots and writebacks first (CASCADE)
+    from db.models import Snapshot, Writeback
+    
+    # Delete snapshots
+    snapshot_result = await db.execute(
+        select(Snapshot).where(Snapshot.base_image_id == image_id)
+    )
+    snapshots = snapshot_result.scalars().all()
+    for snapshot in snapshots:
+        await db.delete(snapshot)
+    
+    # Delete writebacks
+    writeback_result = await db.execute(
+        select(Writeback).where(Writeback.base_image_id == image_id)
+    )
+    writebacks = writeback_result.scalars().all()
+    for writeback in writebacks:
+        await db.delete(writeback)
+    
+    # Now delete image
     await db.delete(image)
     await db.commit()
     

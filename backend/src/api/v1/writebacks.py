@@ -178,8 +178,9 @@ async def apply_writeback(
     writeback.status = WritebackStatus.APPLIED
     await db.commit()
     await db.refresh(writeback)
-
-    return {"success": True, "message": "Writeback applied to base image"}
+    
+    writeback.inactive_hours = 0  # Placeholder
+    return WritebackResponse.from_orm(writeback)
 
 
 @router.post("/{writeback_id}/discard")
@@ -204,10 +205,12 @@ async def discard_writeback(
     # TODO: Delete ZFS volume
     # Command: zfs destroy pool0/ggnet/writebacks/[writeback_id]
     
-    await db.delete(writeback)
+    writeback.status = WritebackStatus.DISCARDED
     await db.commit()
-
-    return {"success": True, "message": "Writeback discarded"}
+    await db.refresh(writeback)
+    
+    writeback.inactive_hours = 0  # Placeholder
+    return WritebackResponse.from_orm(writeback)
 
 
 @router.post("/cleanup")
