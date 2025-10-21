@@ -93,20 +93,38 @@ class StructuredLogger:
     
     def _add_file_handler(self):
         """Add rotating file handler"""
-        # Create log directory if it doesn't exist
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Create log file path
-        log_file = self.log_dir / f"{self.name}.log"
-        
-        # Create rotating file handler
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=self.max_bytes,
-            backupCount=self.backup_count
-        )
-        file_handler.setLevel(self.level)
-        file_handler.setFormatter(self.file_formatter)
+        try:
+            # Create log directory if it doesn't exist
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create log file path
+            log_file = self.log_dir / f"{self.name}.log"
+            
+            # Create rotating file handler
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=self.max_bytes,
+                backupCount=self.backup_count
+            )
+            file_handler.setLevel(self.level)
+            file_handler.setFormatter(self.file_formatter)
+        except PermissionError:
+            # Fallback to temp directory if no permission for /var/log/ggnet
+            import tempfile
+            temp_log_dir = Path(tempfile.gettempdir()) / "ggnet_logs"
+            temp_log_dir.mkdir(parents=True, exist_ok=True)
+            log_file = temp_log_dir / f"{self.name}.log"
+            
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=self.max_bytes,
+                backupCount=self.backup_count
+            )
+            file_handler.setLevel(self.level)
+            file_handler.setFormatter(self.file_formatter)
+            
+            # Log warning about fallback
+            print(f"Warning: Using temp log directory: {temp_log_dir}")
         self.logger.addHandler(file_handler)
     
     def debug(self, message: str, **kwargs):
