@@ -24,8 +24,8 @@ def mock_db():
 
 
 @pytest.fixture
-def client(mock_db):
-    """Create test client with mocked dependencies"""
+def storage_client(mock_db):
+    """Create test client with mocked dependencies for storage API tests"""
     from main import app
     from db.base import get_db
     
@@ -123,11 +123,11 @@ class TestStorageAPI:
     """Test Storage API endpoints"""
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_get_array_status(self, mock_get_manager, client, mock_storage_manager):
+    def test_get_array_status(self, mock_get_manager, storage_storage_client, mock_storage_manager):
         """Test GET /api/v1/storage/array/status"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.get("/api/v1/storage/array/status")
+        response = storage_client.get("/api/v1/storage/array/status")
         
         assert response.status_code == 200
         data = response.json()
@@ -141,11 +141,11 @@ class TestStorageAPI:
         assert data['breakdown']['system_images_gb'] == 500
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_drive(self, mock_get_manager, client, mock_storage_manager):
+    def test_add_drive(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/drives/add"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/add",
             json={"device": "sdc"}
         )
@@ -158,12 +158,12 @@ class TestStorageAPI:
         mock_storage_manager.add_drive.assert_called_once_with("sdc")
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_drive_invalid_device(self, mock_get_manager, client, mock_storage_manager):
+    def test_add_drive_invalid_device(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/drives/add with invalid device"""
         mock_storage_manager.add_drive.return_value = False
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/add",
             json={"device": "invalid"}
         )
@@ -174,12 +174,12 @@ class TestStorageAPI:
         assert "failed" in detail or "invalid" in detail
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_drive_failure(self, mock_get_manager, client, mock_storage_manager):
+    def test_add_drive_failure(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/drives/add failure"""
         mock_storage_manager.add_drive.return_value = False
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/add",
             json={"device": "sdc"}
         )
@@ -188,11 +188,11 @@ class TestStorageAPI:
         assert "Failed to add drive" in response.json()['detail']
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_remove_drive(self, mock_get_manager, client, mock_storage_manager):
+    def test_remove_drive(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/drives/remove"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/remove",
             json={"device": "sdc"}
         )
@@ -205,11 +205,11 @@ class TestStorageAPI:
         mock_storage_manager.remove_drive.assert_called_once_with("sdc")
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_replace_drive(self, mock_get_manager, client, mock_storage_manager):
+    def test_replace_drive(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/drives/replace"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/replace",
             json={"old_device": "sda", "new_device": "sdc"}
         )
@@ -222,11 +222,11 @@ class TestStorageAPI:
         mock_storage_manager.replace_drive.assert_called_once_with("sda", "sdc")
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_bring_drive_offline(self, mock_get_manager, client, mock_storage_manager):
+    def test_bring_drive_offline(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/drives/{device}/offline"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post("/api/v1/storage/array/drives/sda/offline")
+        response = storage_client.post("/api/v1/storage/array/drives/sda/offline")
         
         assert response.status_code == 200
         data = response.json()
@@ -236,11 +236,11 @@ class TestStorageAPI:
         mock_storage_manager.bring_drive_offline.assert_called_once_with("sda")
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_bring_drive_online(self, mock_get_manager, client, mock_storage_manager):
+    def test_bring_drive_online(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/drives/{device}/online"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post("/api/v1/storage/array/drives/sda/online")
+        response = storage_client.post("/api/v1/storage/array/drives/sda/online")
         
         assert response.status_code == 200
         data = response.json()
@@ -251,7 +251,7 @@ class TestStorageAPI:
     
     @patch('api.v1.storage.get_safety_validator')
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_stripe(self, mock_get_manager, mock_get_validator, client, mock_storage_manager):
+    def test_add_stripe(self, mock_get_manager, mock_get_validator, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/stripes"""
         mock_get_manager.return_value = mock_storage_manager
         
@@ -262,7 +262,7 @@ class TestStorageAPI:
         mock_validator.validate_devices.return_value = (True, "OK")
         mock_get_validator.return_value = mock_validator
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes",
             json={
                 "stripe_number": 0,
@@ -279,11 +279,11 @@ class TestStorageAPI:
         mock_storage_manager.add_stripe.assert_called_once_with(0, "mirror", ["sdc", "sdd"])
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_stripe_invalid_stripe_number(self, mock_get_manager, client, mock_storage_manager):
+    def test_add_stripe_invalid_stripe_number(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/stripes with invalid stripe number"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes",
             json={
                 "stripe_number": 15,
@@ -296,11 +296,11 @@ class TestStorageAPI:
         assert "must be between 0 and 10" in response.json()['detail']
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_stripe_invalid_raid_type(self, mock_get_manager, client, mock_storage_manager):
+    def test_add_stripe_invalid_raid_type(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/stripes with invalid RAID type"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes",
             json={
                 "stripe_number": 0,
@@ -314,7 +314,7 @@ class TestStorageAPI:
     
     @patch('api.v1.storage.get_safety_validator')
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_stripe_no_devices(self, mock_get_manager, mock_get_validator, client, mock_storage_manager):
+    def test_add_stripe_no_devices(self, mock_get_manager, mock_get_validator, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/stripes without devices"""
         mock_get_manager.return_value = mock_storage_manager
         
@@ -325,7 +325,7 @@ class TestStorageAPI:
         mock_validator.validate_devices.return_value = (False, "No devices provided")
         mock_get_validator.return_value = mock_validator
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes",
             json={
                 "stripe_number": 0,
@@ -339,11 +339,11 @@ class TestStorageAPI:
         assert "device" in detail or "require" in detail
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_get_available_drives(self, mock_get_manager, client, mock_storage_manager):
+    def test_get_available_drives(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test GET /api/v1/storage/array/available-drives"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.get("/api/v1/storage/array/available-drives")
+        response = storage_client.get("/api/v1/storage/array/available-drives")
         
         assert response.status_code == 200
         data = response.json()
@@ -354,11 +354,11 @@ class TestStorageAPI:
         assert data[1]['device'] == 'sdd'
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_drive_to_stripe(self, mock_get_manager, client, mock_storage_manager):
+    def test_add_drive_to_stripe(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/stripes/{stripe}/drives"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes/0/drives",
             json={"device": "sdc"}
         )
@@ -371,11 +371,11 @@ class TestStorageAPI:
         mock_storage_manager.add_drive_to_stripe.assert_called_once_with("0", "sdc")
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_drive_to_stripe_invalid_device(self, mock_get_manager, client, mock_storage_manager):
+    def test_add_drive_to_stripe_invalid_device(self, mock_get_manager, storage_client, mock_storage_manager):
         """Test POST /api/v1/storage/array/stripes/{stripe}/drives with invalid device"""
         mock_get_manager.return_value = mock_storage_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes/0/drives",
             json={"device": "invalid"}
         )
@@ -389,26 +389,26 @@ class TestStorageAPIErrors:
     """Test Storage API error handling"""
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_get_array_status_exception(self, mock_get_manager, client):
+    def test_get_array_status_exception(self, mock_get_manager, storage_client):
         """Test GET /api/v1/storage/array/status exception handling"""
         mock_manager = Mock()
         mock_manager.get_array_status.side_effect = Exception("Test error")
         mock_get_manager.return_value = mock_manager
         
-        response = client.get("/api/v1/storage/array/status")
+        response = storage_client.get("/api/v1/storage/array/status")
         
         assert response.status_code == 500
         detail = response.json()['detail'].lower()
         assert "failed" in detail or "error" in detail
     
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_drive_exception(self, mock_get_manager, client):
+    def test_add_drive_exception(self, mock_get_manager, storage_client):
         """Test POST /api/v1/storage/array/drives/add exception handling"""
         mock_manager = Mock()
         mock_manager.add_drive.side_effect = Exception("Test error")
         mock_get_manager.return_value = mock_manager
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/add",
             json={"device": "sdc"}
         )
@@ -418,7 +418,7 @@ class TestStorageAPIErrors:
     
     @patch('api.v1.storage.get_safety_validator')
     @patch('api.v1.storage.get_storage_manager')
-    def test_add_stripe_exception(self, mock_get_manager, mock_get_validator, client):
+    def test_add_stripe_exception(self, mock_get_manager, mock_get_validator, storage_client):
         """Test POST /api/v1/storage/array/stripes exception handling"""
         mock_manager = Mock()
         mock_manager.add_stripe.side_effect = Exception("Test error")
@@ -431,7 +431,7 @@ class TestStorageAPIErrors:
         mock_validator.validate_devices.return_value = (True, "OK")
         mock_get_validator.return_value = mock_validator
         
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes",
             json={
                 "stripe_number": 0,
@@ -447,27 +447,27 @@ class TestStorageAPIErrors:
 class TestStorageAPIValidation:
     """Test Storage API input validation"""
     
-    def test_add_drive_missing_device(self, client):
+    def test_add_drive_missing_device(self, storage_client):
         """Test POST /api/v1/storage/array/drives/add with missing device"""
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/add",
             json={}
         )
         
         assert response.status_code == 422  # Validation error
     
-    def test_replace_drive_missing_fields(self, client):
+    def test_replace_drive_missing_fields(self, storage_client):
         """Test POST /api/v1/storage/array/drives/replace with missing fields"""
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/drives/replace",
             json={"old_device": "sda"}
         )
         
         assert response.status_code == 422  # Validation error
     
-    def test_add_stripe_invalid_json(self, client):
+    def test_add_stripe_invalid_json(self, storage_client):
         """Test POST /api/v1/storage/array/stripes with invalid JSON"""
-        response = client.post(
+        response = storage_client.post(
             "/api/v1/storage/array/stripes",
             data="invalid json"
         )

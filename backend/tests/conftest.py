@@ -72,11 +72,12 @@ def mock_db():
 
 
 @pytest.fixture
-def client(mock_db):
+def mock_client(mock_db):
     """
-    Create test client with mocked dependencies
+    Create test client with mocked database for unit/integration tests
     
-    This fixture is shared across all tests that need FastAPI TestClient
+    Use this for tests that don't need real database.
+    E2E tests should define their own 'client' fixture with real DB.
     """
     from main import app
     from db.base import get_db
